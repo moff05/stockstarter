@@ -16,6 +16,5 @@ export default defineConfig({
   },
   ssr: {
     external: ["bun:sqlite"],
-    noExternal: true,
   },
 });
