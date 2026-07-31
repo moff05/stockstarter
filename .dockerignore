@@ -1,0 +1,17 @@
+node_modules
+dist
+release
+data
+.git
+.github
+.env
+.env.*
+electron
+*.log
+electron-out.txt
+electron-err.txt
+preview-out.txt
+preview-err.txt
+scripts/inject-update-token.mjs
+electron/update-token.generated.mjs
+CLAUDE.md
