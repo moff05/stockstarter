@@ -244,9 +244,10 @@ function AppLayout() {
 
   return (
     <AccountFilterProvider>
-      <div className="h-dvh flex flex-col md:flex-row overflow-hidden bg-background">
+      <div className="liquid-backdrop" aria-hidden="true" />
+      <div className="relative z-10 h-dvh flex flex-col md:flex-row overflow-hidden">
         {/* Mobile top bar (hidden on md+) */}
-        <header className="md:hidden flex items-center gap-3 h-14 px-4 border-b border-sidebar-border bg-sidebar shrink-0">
+        <header className="md:hidden glass-surface flex items-center gap-3 h-14 px-4 shrink-0 rounded-none border-x-0 border-t-0">
           <button
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
@@ -255,10 +256,10 @@ function AppLayout() {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-muted ring-1 ring-inset ring-border flex items-center justify-center shrink-0">
-              <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10.5" stroke="#1f2937" strokeWidth="4"/><path d="M16 5.5 a10.5 10.5 0 0 1 9.1 5.25" stroke="#a97c1c" strokeWidth="4" strokeLinecap="round"/></svg>
+            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-sky-400 to-blue-700 flex items-center justify-center shrink-0 shadow-[0_0_12px_-2px_oklch(0.74_0.135_235_/_0.6)]">
+              <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10.5" stroke="#04101f" strokeWidth="4" opacity="0.55"/><path d="M16 5.5 a10.5 10.5 0 0 1 9.1 5.25" stroke="#04101f" strokeWidth="4" strokeLinecap="round"/></svg>
             </div>
-            <span className="font-semibold text-sm tracking-tight">StockStarter</span>
+            <span className="font-display font-semibold text-sm tracking-tight">StockStarter</span>
           </div>
         </header>
 
@@ -275,7 +276,7 @@ function AppLayout() {
 
         <aside
           className={cn(
-            "w-56 border-r border-sidebar-border bg-sidebar flex flex-col shrink-0 z-50",
+            "glass-surface w-60 rounded-none border-y-0 border-l-0 flex flex-col shrink-0 z-50",
             "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:transition-transform max-md:duration-200",
             mobileOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full",
           )}
@@ -283,10 +284,10 @@ function AppLayout() {
           {/* Logo */}
           <div className="px-5 py-5 border-b border-sidebar-border flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-muted ring-1 ring-inset ring-border flex items-center justify-center shrink-0">
-                <svg width="16" height="16" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10.5" stroke="#1f2937" strokeWidth="4"/><path d="M16 5.5 a10.5 10.5 0 0 1 9.1 5.25" stroke="#a97c1c" strokeWidth="4" strokeLinecap="round"/></svg>
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-400 to-blue-700 flex items-center justify-center shrink-0 shadow-[0_0_14px_-2px_oklch(0.74_0.135_235_/_0.65)]">
+                <svg width="16" height="16" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10.5" stroke="#04101f" strokeWidth="4" opacity="0.55"/><path d="M16 5.5 a10.5 10.5 0 0 1 9.1 5.25" stroke="#04101f" strokeWidth="4" strokeLinecap="round"/></svg>
               </div>
-              <span className="font-semibold text-sm tracking-tight">StockStarter</span>
+              <span className="font-display font-semibold text-sm tracking-tight">StockStarter</span>
             </div>
             {/* Close (mobile only) */}
             <button
@@ -321,13 +322,13 @@ function AppLayout() {
                         search={item.search as any}
                         onClick={() => setMobileOpen(false)}
                         className={cn(
-                          "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
+                          "flex items-center gap-2.5 px-2.5 py-1.5 rounded-full text-sm transition-all duration-300",
                           active
-                            ? "text-primary font-medium bg-primary/6"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                            ? "text-sidebar-primary-foreground font-medium bg-gradient-to-r from-sky-400/90 to-blue-600/80 shadow-[0_0_18px_-4px_oklch(0.74_0.135_235_/_0.8),inset_0_1px_0_0_oklch(0.9_0.05_235_/_0.4)]"
+                            : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent",
                         )}
                       >
-                        <Icon className={cn("w-4 h-4 shrink-0", active ? "text-primary" : "")} />
+                        <Icon className={cn("w-4 h-4 shrink-0", active ? "text-sidebar-primary-foreground" : "")} />
                         {item.label}
                       </Link>
                     );

@@ -395,14 +395,14 @@ function SubPeriodsSection({ subPeriods }: { subPeriods: SubPeriod[] }) {
           <h2 className="font-semibold text-foreground">Period Returns</h2>
           <p className="text-xs mt-0.5">Returns chain-linked across cash flow sub-periods within each bucket.</p>
         </div>
-        <div className="flex gap-1 rounded-md border p-0.5 bg-muted/40 text-xs">
+        <div className="flex gap-1 rounded-full glass-surface p-0.5 text-xs">
           {(["quarterly", "annual"] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
               className={cn(
                 "px-2.5 py-1 rounded font-medium transition-colors capitalize",
-                view === v ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                view === v ? "bg-gradient-to-r from-sky-400/90 to-blue-600/80 text-white shadow-[0_0_12px_-4px_oklch(0.74_0.135_235_/_0.8)]" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {v}
@@ -590,7 +590,7 @@ function PerformancePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1 rounded-lg border p-1 bg-muted/40">
+          <div className="flex gap-1 rounded-full glass-surface p-1">
             {(["SPY", "QQQ"] as BenchSym[]).map((b) => (
               <button
                 key={b}
@@ -598,7 +598,7 @@ function PerformancePage() {
                 className={cn(
                   "px-2.5 py-1 rounded text-xs font-medium transition-colors",
                   benchSym === b
-                    ? "bg-background shadow-sm text-foreground"
+                    ? "bg-gradient-to-r from-sky-400/90 to-blue-600/80 text-white shadow-[0_0_12px_-4px_oklch(0.74_0.135_235_/_0.8)]"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -606,7 +606,7 @@ function PerformancePage() {
               </button>
             ))}
           </div>
-          <div className="flex gap-1 rounded-lg border p-1 bg-muted/40">
+          <div className="flex gap-1 rounded-full glass-surface p-1">
             {periods.map((p) => (
               <button
                 key={p}
@@ -615,7 +615,7 @@ function PerformancePage() {
                 className={cn(
                   "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                   period === p
-                    ? "bg-background shadow-sm text-foreground"
+                    ? "bg-gradient-to-r from-sky-400/90 to-blue-600/80 text-white shadow-[0_0_12px_-4px_oklch(0.74_0.135_235_/_0.8)]"
                     : "text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed",
                 )}
               >

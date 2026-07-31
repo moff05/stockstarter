@@ -240,7 +240,7 @@ function PeriodToggle({ value, onChange, compact }: {
   compact?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-0.5 w-fit rounded-lg border p-0.5 bg-muted/40">
+    <div className="flex flex-wrap gap-0.5 w-fit rounded-full glass-surface p-0.5">
       {NAV_PERIODS.map((p) => (
         <button
           key={p}
@@ -249,7 +249,7 @@ function PeriodToggle({ value, onChange, compact }: {
             "rounded font-medium transition-colors",
             compact ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs",
             value === p
-              ? "bg-background shadow-sm text-foreground"
+              ? "bg-gradient-to-r from-sky-400/90 to-blue-600/80 text-white shadow-[0_0_12px_-4px_oklch(0.74_0.135_235_/_0.8)]"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
@@ -804,7 +804,7 @@ function Dashboard() {
             <p className="text-xs mt-0.5">Portfolio weight by sector vs. {sectorBenchmark === "SPY" ? "S&P 500 (SPY)" : "NASDAQ 100 (QQQ)"}</p>
           </div>
           {/* Benchmark toggle */}
-          <div className="flex gap-0.5 rounded-lg border p-0.5 bg-muted/40">
+          <div className="flex gap-0.5 rounded-full glass-surface p-0.5">
             {(["SPY", "QQQ"] as const).map((b) => (
               <button
                 key={b}
@@ -812,7 +812,7 @@ function Dashboard() {
                 className={cn(
                   "px-2.5 py-1 rounded text-xs font-medium transition-colors",
                   sectorBenchmark === b
-                    ? "bg-background shadow-sm text-foreground"
+                    ? "bg-gradient-to-r from-sky-400/90 to-blue-600/80 text-white shadow-[0_0_12px_-4px_oklch(0.74_0.135_235_/_0.8)]"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >

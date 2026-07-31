@@ -112,7 +112,7 @@ function TaxLossPage() {
             Wash sale risk flags positions where you bought within the last 30 days.
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-md border p-0.5 bg-muted/40 text-xs">
+        <div className="flex items-center gap-1 rounded-full glass-surface p-0.5 text-xs">
           {(["FIFO", "HIFO"] as LotMethod[]).map((m) => (
             <button
               key={m}
@@ -120,7 +120,7 @@ function TaxLossPage() {
               className={cn(
                 "px-2.5 py-1 rounded font-medium transition-colors",
                 method === m
-                  ? "bg-background shadow-sm text-foreground"
+                  ? "bg-gradient-to-r from-sky-400/90 to-blue-600/80 text-white shadow-[0_0_12px_-4px_oklch(0.74_0.135_235_/_0.8)]"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
