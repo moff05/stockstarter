@@ -1,5 +1,5 @@
 ﻿import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
-import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, Menu, X, LogOut } from "lucide-react";
+import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, Gauge, Menu, X, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatPanel } from "@/components/ChatPanel";
 import { AccountFilterProvider, useAccountFilter } from "@/lib/account-filter";
@@ -41,9 +41,6 @@ const navSections: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/financials", search: { tab: "capital" }, label: "Capital Statement",  icon: FileText },
       { to: "/financials", search: { tab: "income"  }, label: "Income Statement",   icon: TrendingUp },
-      { to: "/financials", search: { tab: "balance" }, label: "Balance Sheet",      icon: Scale },
-      { to: "/financials", search: { tab: "ledger"  }, label: "General Ledger",     icon: BookOpen },
-      { to: "/financials", search: { tab: "coa"     }, label: "Chart of Accounts",  icon: BookMarked },
     ],
   },
   {
@@ -51,6 +48,15 @@ const navSections: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/transactions", label: "Transactions", icon: Receipt },
       { to: "/upload",       label: "Upload",       icon: Upload },
+    ],
+  },
+  {
+    label: "Advanced",
+    items: [
+      { to: "/advanced",   label: "Advanced Analytics", icon: Gauge },
+      { to: "/financials", search: { tab: "balance" }, label: "Balance Sheet",      icon: Scale },
+      { to: "/financials", search: { tab: "ledger"  }, label: "General Ledger",     icon: BookOpen },
+      { to: "/financials", search: { tab: "coa"     }, label: "Chart of Accounts",  icon: BookMarked },
     ],
   },
 ];

@@ -5,12 +5,11 @@ import { usePortfolio } from "@/hooks/use-portfolio";
 import { AsOfDatePicker } from "@/components/AsOfDatePicker";
 import { DataIntegrityBanner } from "@/components/DataIntegrityBanner";
 import { Card } from "@/components/ui/card";
-import { buildSnapshot, formatMoney, isoAddDays } from "@/lib/portfolio";
+import { formatMoney } from "@/lib/portfolio";
 import { getAssetClass, getSector } from "@/lib/sector";
 import { getNavHistory } from "@/lib/performance.functions";
 import { getHistoricalCloses } from "@/lib/prices.functions";
 import { useAccountFilter } from "@/lib/account-filter";
-import { SPY_SECTOR_WEIGHTS, QQQ_SECTOR_WEIGHTS } from "@/lib/index-sector-weights";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
@@ -18,7 +17,6 @@ import {
 } from "recharts";
 import { PiggyBank } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Transaction } from "@/lib/portfolio";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — StockStarter" }] }),
@@ -212,27 +210,6 @@ function resampleNavToMonthly(data: { date: string; value: number }[]): { date: 
   return Array.from(months.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function getNavAtDate(series: { date: string; value: number }[], targetDate: string): number {
-  let best = 0;
-  for (const p of series) {
-    if (p.date <= targetDate) best = p.value;
-    else break;
-  }
-  return best;
-}
-
-function periodSince(period: NavPeriod, navSeries: { date: string; value: number }[], asOfDate?: string): string {
-  let startDate: string;
-  if (period === "Max") {
-    startDate = navSeries[0]?.date ?? "";
-  } else {
-    startDate = getNavCutoff(period, asOfDate);
-  }
-  if (!startDate) return "";
-  const d = new Date(startDate + "T00:00:00Z");
-  return `Since ${d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}`;
-}
-
 const NAV_PERIODS: NavPeriod[] = ["1D", "1W", "6M", "YTD", "1Y", "3Y", "5Y", "Max"];
 
 function PeriodToggle({ value, onChange, compact }: {
@@ -261,163 +238,7 @@ function PeriodToggle({ value, onChange, compact }: {
   );
 }
 
-// â”€â”€ Partners Capital Snapshot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function computePeriodActivity(
-  txns: Transaction[],
-  periodStart: string,
-  startNavMV: number,
-  endNavMV: number,
-  asOf: string,
-) {
-  const dayBefore = isoAddDays(periodStart, -1);
-  const startSnap = buildSnapshot(txns, dayBefore, {});
-
-  // Use NAV values directly as the period boundaries.
-  // snapshot.cash is accounting cash (contributions − purchases) and goes deeply negative
-  // when securities are transferred in-kind with no offsetting CONTRIBUTION transaction.
-  // Adding cash here would produce a wildly wrong ending balance.
-  const startingBalance = startNavMV;
-  const endingBalance   = endNavMV;
-
-  const periodTxns = txns
-    .filter((t) => t.trade_date >= periodStart && t.trade_date <= asOf)
-    .slice()
-    .sort((a, b) => a.trade_date.localeCompare(b.trade_date));
-
-  let contributions = 0, distributions = 0, dividends = 0, interest = 0, fees = 0, realized = 0;
-
-  const positions: Record<string, { qty: number; cost: number }> = {};
-  for (const h of startSnap.holdings) {
-    positions[h.symbol] = { qty: h.quantity, cost: h.costBasis };
-  }
-
-  for (const t of periodTxns) {
-    const sym = (t.symbol ?? "").toUpperCase();
-    const qty = Math.abs(Number(t.quantity ?? 0));
-    const px  = Number(t.price ?? 0);
-    const amt = Number(t.amount ?? 0);
-    const fee = Number(t.fees ?? 0);
-    fees += fee;
-
-    switch (t.action) {
-      case "BUY": {
-        const pos = (positions[sym] ??= { qty: 0, cost: 0 });
-        pos.qty  += qty;
-        pos.cost += Math.abs(amt) || qty * px + fee;
-        break;
-      }
-      case "SELL": {
-        const pos = positions[sym] ?? { qty: 0, cost: 0 };
-        const avg = pos.qty > 0 ? pos.cost / pos.qty : 0;
-        const sellQty = Math.min(qty, pos.qty);
-        const proceeds = Math.abs(amt) || qty * px - fee;
-        realized += proceeds - avg * sellQty;
-        pos.qty  -= sellQty;
-        pos.cost -= avg * sellQty;
-        break;
-      }
-      case "DIVIDEND":     dividends += amt; break;
-      case "INTEREST":     interest  += amt; break;
-      case "CONTRIBUTION": contributions += Math.abs(amt); break;
-      case "DISTRIBUTION": distributions += Math.abs(amt); break;
-    }
-  }
-
-  const unrealizedChange =
-    endingBalance - startingBalance - contributions + distributions - dividends - interest - realized + fees;
-
-  return { startingBalance, contributions, distributions, dividends, interest, fees, realized, unrealizedChange, endingBalance };
-}
-
-type ActivityLine = { label: string; value: number; indent?: boolean; bold?: boolean; separator?: boolean };
-
-function CapitalSnapshot({
-  txns,
-  navSeries,
-  endMV,
-  period,
-  asOf,
-}: {
-  txns: Transaction[];
-  navSeries: { date: string; value: number }[];
-  endMV: number;
-  period: NavPeriod;
-  asOf: string;
-}) {
-  const activity = useMemo(() => {
-    let cutoff: string;
-    if (period === "Max") {
-      if (navSeries.length === 0) return null;
-      cutoff = navSeries[0].date;
-    } else {
-      cutoff = getNavCutoff(period, asOf);
-      if (!cutoff) return null;
-    }
-    const startNavMV = getNavAtDate(navSeries, cutoff);
-    if (startNavMV === 0 && navSeries.length === 0) return null;
-    return computePeriodActivity(txns, cutoff, startNavMV, endMV, asOf);
-  }, [txns, navSeries, endMV, period, asOf]);
-
-  const since = periodSince(period, navSeries, asOf);
-
-  if (!activity) return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="text-center max-w-[220px] px-2">
-        <PiggyBank className="w-9 h-9 mx-auto mb-3 text-primary/50" />
-        <p className="text-sm font-medium text-foreground mb-1">No activity yet</p>
-        <p className="text-xs text-muted-foreground mb-4">
-          Capital flows and gains for this period show up here once you upload transactions.
-        </p>
-        <Link
-          to="/upload"
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium px-3.5 py-1.5 hover:opacity-90 transition-opacity"
-        >
-          Upload a statement
-        </Link>
-      </div>
-    </div>
-  );
-
-  const lines: ActivityLine[] = [
-    { label: "Starting Balance", value: activity.startingBalance, bold: true },
-    { label: "Contributions",    value: activity.contributions,   indent: true },
-    { label: "Distributions",    value: -activity.distributions,  indent: true },
-    { label: "Interest",         value: activity.interest,        indent: true },
-    { label: "Dividends",        value: activity.dividends,       indent: true },
-    { label: "Fees & Exp.",      value: -activity.fees,           indent: true },
-    { label: "Unrealized G/L",   value: activity.unrealizedChange,indent: true },
-    { label: "Realized G/L",     value: activity.realized,        indent: true },
-    { label: "Ending Balance",   value: activity.endingBalance,   bold: true, separator: true },
-  ];
-
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground mb-1">
-        {period} period{since ? <span className="text-muted-foreground"> · {since}</span> : null}
-      </p>
-      <table className="w-full text-xs mt-1">
-        <tbody>
-          {lines.map((l, i) => (
-            <tr key={i} className={cn(l.separator ? "border-t border-border/60" : "")}>
-              <td className={cn("py-1.5", l.indent ? "pl-3 text-muted-foreground" : "font-semibold text-foreground")}>
-                {l.label}
-              </td>
-              <td className={cn(
-                "py-1.5 text-right tabular-nums",
-                l.bold ? "font-semibold text-foreground" : "",
-                l.value < 0 ? "text-loss" : l.value > 0 && l.indent ? "text-gain" : "text-foreground",
-              )}>
-                {formatMoney(l.value)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Dashboard() {
   const today = localDateStr();
   const [asOf, setAsOf] = useState(today);
@@ -430,9 +251,7 @@ function Dashboard() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [navPeriod, setNavPeriod] = useState<NavPeriod>("YTD");
-  const [snapshotPeriod, setSnapshotPeriod] = useState<NavPeriod>("YTD");
   const [treemapPeriod, setTreemapPeriod] = useState<NavPeriod>("YTD");
-  const [sectorBenchmark, setSectorBenchmark] = useState<"SPY" | "QQQ">("SPY");
 
   const { snapshot, txns, isLoading, unmatchedSells } = usePortfolio(asOf);
   const { account } = useAccountFilter();
@@ -525,39 +344,7 @@ function Dashboard() {
       }));
   }, [snapshot.holdings, snapshot.cash]);
 
-  // â”€â”€ Sector allocation vs SPY vs QQQ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const sectorChartData = useMemo(() => {
-    const portfolioMap: Record<string, number> = {};
-    for (const h of snapshot.holdings) {
-      const s = getSector(h.symbol);
-      portfolioMap[s] = (portfolioMap[s] ?? 0) + h.weightPct;
-    }
-    const allSectors = new Set([
-      ...Object.keys(portfolioMap),
-      ...Object.keys(SPY_SECTOR_WEIGHTS),
-      ...Object.keys(QQQ_SECTOR_WEIGHTS),
-    ]);
-    return Array.from(allSectors)
-      .map((s) => ({
-        sector: s,
-        Portfolio: parseFloat((portfolioMap[s] ?? 0).toFixed(2)),
-        SPY:       parseFloat((SPY_SECTOR_WEIGHTS[s] ?? 0).toFixed(2)),
-        QQQ:       parseFloat((QQQ_SECTOR_WEIGHTS[s] ?? 0).toFixed(2)),
-      }))
-      .filter((d) => d.Portfolio > 0.1 || d.SPY > 0 || d.QQQ > 0)
-      .sort((a, b) => b.Portfolio - a.Portfolio);
-  }, [snapshot.holdings]);
-
-  // Lock the sector Y-axis to the global max across Portfolio, SPY, and QQQ
-  // so toggling benchmarks doesn't rescale the axis
-  const sectorYMax = useMemo(() => {
-    if (sectorChartData.length === 0) return 50;
-    let max = 0;
-    for (const d of sectorChartData) max = Math.max(max, d.Portfolio, d.SPY, d.QQQ);
-    return Math.ceil(max / 5) * 5; // round up to nearest 5%, no extra buffer
-  }, [sectorChartData]);
-
-  // â”€â”€ Monthly income â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Monthly income â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const incomeByMonth = useMemo(() => {
     const months: { month: string; label: string; Dividends: number; Interest: number }[] = [];
     const [asOfY, asOfM] = asOf.split("-").map(Number);
@@ -638,57 +425,35 @@ function Dashboard() {
 
       <DataIntegrityBanner issues={unmatchedSells} />
 
-      {/* â”€â”€ NAV chart (2/3) + Partners Capital Snapshot (1/3) â”€â”€ */}
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        {/* NAV chart — period toggle lives inside this card */}
-        <Card className="p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <h2 className="text-sm font-semibold text-foreground">Portfolio Value Over Time</h2>
-            <PeriodToggle value={navPeriod} onChange={setNavPeriod} compact />
-          </div>
-          {navData.length < 2 ? (
-            <EmptyState height={280} />
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={navChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="navGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#C9A050" stopOpacity={0.22} />
-                    <stop offset="95%" stopColor="#C9A050" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tickFormatter={navTickFormatter} tick={TICK} tickLine={false} axisLine={false} minTickGap={48} />
-                <YAxis
-                  tickFormatter={(v: number) => v >= 1_000_000 ? `$${(v/1_000_000).toFixed(1)}M` : `$${(v/1_000).toFixed(0)}K`}
-                  tick={TICK} tickLine={false} axisLine={false} width={56}
-                  domain={[(dataMin: number) => dataMin * 0.995, (dataMax: number) => dataMax * 1.005]}
-                />
-                <Tooltip content={<NavTooltip />} />
-                <Area type="monotone" dataKey="value" stroke="#C9A050" strokeWidth={2} fill="url(#navGrad)" dot={false} activeDot={{ r: 4, fill: "#C9A050" }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        {/* Partners Capital Snapshot — own period toggle */}
-        <Card className="p-5 flex flex-col">
-          <h2 className="text-sm font-semibold text-foreground mb-3">Capital Snapshot</h2>
-          <PeriodToggle value={snapshotPeriod} onChange={setSnapshotPeriod} compact />
-          <div className="mt-3 flex-1 flex flex-col">
-            {isLoading ? (
-              <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground animate-pulse">Loading…</div>
-            ) : (
-              <CapitalSnapshot
-                txns={txns}
-                navSeries={navSeries}
-                endMV={snapshot.totalMarketValue}
-                period={snapshotPeriod}
-                asOf={asOf}
+      {/* â”€â”€ NAV chart â”€â”€ */}
+      <Card className="p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <h2 className="text-sm font-semibold text-foreground">Portfolio Value Over Time</h2>
+          <PeriodToggle value={navPeriod} onChange={setNavPeriod} compact />
+        </div>
+        {navData.length < 2 ? (
+          <EmptyState height={280} />
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={navChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+              <defs>
+                <linearGradient id="navGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#C9A050" stopOpacity={0.22} />
+                  <stop offset="95%" stopColor="#C9A050" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" tickFormatter={navTickFormatter} tick={TICK} tickLine={false} axisLine={false} minTickGap={48} />
+              <YAxis
+                tickFormatter={(v: number) => v >= 1_000_000 ? `$${(v/1_000_000).toFixed(1)}M` : `$${(v/1_000).toFixed(0)}K`}
+                tick={TICK} tickLine={false} axisLine={false} width={56}
+                domain={[(dataMin: number) => dataMin * 0.995, (dataMax: number) => dataMax * 1.005]}
               />
-            )}
-          </div>
-        </Card>
-      </div>
+              <Tooltip content={<NavTooltip />} />
+              <Area type="monotone" dataKey="value" stroke="#C9A050" strokeWidth={2} fill="url(#navGrad)" dot={false} activeDot={{ r: 4, fill: "#C9A050" }} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
 
       {/* â”€â”€ Treemap — own period toggle in header â”€â”€ */}
       <div>
@@ -810,71 +575,6 @@ function Dashboard() {
           )}
         </Card>
       </div>
-
-      {/* â”€â”€ Sector vs SPY/QQQ — vertical bar chart, full width by default â”€â”€ */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Sector Allocation vs. Benchmarks</h2>
-            <p className="text-xs mt-0.5">Portfolio weight by sector vs. {sectorBenchmark === "SPY" ? "S&P 500 (SPY)" : "NASDAQ 100 (QQQ)"}</p>
-          </div>
-          {/* Benchmark toggle */}
-          <div className="flex gap-0.5 rounded-full glass-surface p-0.5">
-            {(["SPY", "QQQ"] as const).map((b) => (
-              <button
-                key={b}
-                onClick={() => setSectorBenchmark(b)}
-                className={cn(
-                  "px-2.5 py-1 rounded text-xs font-medium transition-colors",
-                  sectorBenchmark === b
-                    ? "bg-primary text-primary-foreground shadow-[0_0_10px_-4px_var(--primary)]"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {b}
-              </button>
-            ))}
-          </div>
-        </div>
-        {sectorChartData.length === 0 ? <EmptyState height={300} /> : (
-          <ResponsiveContainer width="100%" height={360}>
-            <BarChart
-              data={sectorChartData}
-              margin={{ top: 4, right: 16, left: 4, bottom: 4 }}
-            >
-              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis
-                dataKey="sector"
-                tick={{ ...TICK, fontSize: 10 } as any}
-                tickLine={false}
-                axisLine={false}
-                angle={-45}
-                textAnchor="end"
-                interval={0}
-                height={75}
-              />
-              <YAxis
-                tickFormatter={(v) => `${v}%`}
-                tick={TICK}
-                tickLine={false}
-                axisLine={false}
-                width={40}
-                domain={[0, sectorYMax]}
-              />
-              <Tooltip
-                formatter={(v: number, name: string) => [`${v.toFixed(2)}%`, name]}
-                contentStyle={TOOLTIP_STYLE}
-              />
-              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-              <Bar dataKey="Portfolio" fill="#C9A050" maxBarSize={22} />
-              {sectorBenchmark === "SPY"
-                ? <Bar dataKey="SPY" fill="#6b6455" maxBarSize={22} />
-                : <Bar dataKey="QQQ" fill="#8B6FB0" maxBarSize={22} />
-              }
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </Card>
 
       {/* â”€â”€ Monthly Income (bottom) â”€â”€ */}
       <Card className="p-5">
