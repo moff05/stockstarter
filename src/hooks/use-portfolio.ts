@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listTransactions } from "@/lib/transactions.functions";
 import { getQuotes, getHistoricalCloses, getQuoteMetrics } from "@/lib/prices.functions";
 import { buildSnapshot, type Transaction } from "@/lib/portfolio";
+import { findUnmatchedSells } from "@/lib/data-integrity";
 import { useMemo } from "react";
 import { listMappings } from "@/lib/symbol-mappings.functions";
 import { buildResolver } from "@/lib/symbol-resolver";
@@ -52,6 +53,11 @@ export function usePortfolio(asOfDate?: string) {
     }
     return Array.from(set);
   }, [rawTxns, resolve]);
+
+  // Sales that exceed what the app has a BUY on record for — almost always
+  // means the uploaded history doesn't cover the full time the position was
+  // held, so cost basis / gains for that symbol are understated.
+  const unmatchedSells = useMemo(() => findUnmatchedSells(txns), [txns]);
 
   const symbols = useMemo(() => {
     const set = new Set<string>();
@@ -130,6 +136,7 @@ export function usePortfolio(asOfDate?: string) {
     prices,
     mappings,
     unmapped,
+    unmatchedSells,
     isLoading: txnsQ.isLoading || pricesQ.isLoading || mappingsQ.isLoading,
     refetch: () => {
       txnsQ.refetch();

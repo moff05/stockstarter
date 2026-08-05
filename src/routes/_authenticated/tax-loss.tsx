@@ -3,6 +3,7 @@ import { useMemo, useState, Fragment } from "react";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { buildLots } from "@/lib/tax-lots";
+import { DataIntegrityBanner } from "@/components/DataIntegrityBanner";
 import { SortHead, useSortable, sortRows } from "@/components/SortHead";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -42,7 +43,7 @@ function TaxLossPage() {
       return next;
     });
   }
-  const { snapshot, txns, isLoading } = usePortfolio(today);
+  const { snapshot, txns, isLoading, unmatchedSells } = usePortfolio(today);
 
   const thirtyDaysAgo = useMemo(() => {
     const d = new Date();
@@ -129,6 +130,8 @@ function TaxLossPage() {
           ))}
         </div>
       </div>
+
+      <DataIntegrityBanner issues={unmatchedSells} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="p-5">

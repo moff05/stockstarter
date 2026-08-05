@@ -12,6 +12,7 @@
     "start": "bun server/server.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
+    "test": "bun test src/lib",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

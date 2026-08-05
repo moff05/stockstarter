@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight } from "lucide-rea
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { AsOfDatePicker } from "@/components/AsOfDatePicker";
 import { UnmappedBanner } from "@/components/UnmappedBanner";
+import { DataIntegrityBanner } from "@/components/DataIntegrityBanner";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/portfolio";
@@ -155,7 +156,7 @@ function Holdings() {
   const [sort, setSort] = useState<SortConfig>(null);
   const [method, setMethod] = useState<LotMethod>("HIFO");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const { txns, snapshot, isLoading, unmapped } = usePortfolio(asOf);
+  const { txns, snapshot, isLoading, unmapped, unmatchedSells } = usePortfolio(asOf);
 
   function handleSort(key: SortKey) {
     setSort((prev) =>
@@ -248,6 +249,7 @@ function Holdings() {
       </div>
 
       <UnmappedBanner unmapped={unmapped} />
+      <DataIntegrityBanner issues={unmatchedSells} />
 
       {/* Top / Worst performers */}
       {rankedHoldings.length > 0 && (

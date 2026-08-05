@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { AsOfDatePicker } from "@/components/AsOfDatePicker";
+import { DataIntegrityBanner } from "@/components/DataIntegrityBanner";
 import { Card } from "@/components/ui/card";
 import { buildSnapshot, formatMoney, isoAddDays } from "@/lib/portfolio";
 import { getAssetClass, getSector } from "@/lib/sector";
@@ -433,7 +434,7 @@ function Dashboard() {
   const [treemapPeriod, setTreemapPeriod] = useState<NavPeriod>("YTD");
   const [sectorBenchmark, setSectorBenchmark] = useState<"SPY" | "QQQ">("SPY");
 
-  const { snapshot, txns, isLoading } = usePortfolio(asOf);
+  const { snapshot, txns, isLoading, unmatchedSells } = usePortfolio(asOf);
   const { account } = useAccountFilter();
 
   const clientToday = localDateStr();
@@ -634,6 +635,8 @@ function Dashboard() {
         </div>
         <AsOfDatePicker value={asOf} onChange={setAsOf} />
       </div>
+
+      <DataIntegrityBanner issues={unmatchedSells} />
 
       {/* â”€â”€ NAV chart (2/3) + Partners Capital Snapshot (1/3) â”€â”€ */}
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
