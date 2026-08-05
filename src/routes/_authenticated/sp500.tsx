@@ -146,7 +146,7 @@ function SP500Compare() {
                   className={cn(
                     "px-2.5 py-1 rounded text-xs font-medium transition-colors",
                     sectorBenchmark === b
-                      ? "bg-gradient-to-r from-sky-400/90 to-blue-600/80 text-white shadow-[0_0_12px_-4px_oklch(0.74_0.135_235_/_0.8)]"
+                      ? "bg-primary text-primary-foreground shadow-[0_0_10px_-4px_var(--primary)]"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >

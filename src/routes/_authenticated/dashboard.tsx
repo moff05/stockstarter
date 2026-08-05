@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePortfolio } from "@/hooks/use-portfolio";
@@ -24,36 +24,36 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-// Warm, on-brand categorical palette — built from the suite tokens
-// (chart-1..5) plus warm/muted extensions. Avoids the vivid stock
-// Tailwind-500 look so charts read as the same warm suite as the chrome.
+// Warm charcoal + muted gold categorical palette — built from the suite tokens
+// (chart-1..5) plus warm/muted extensions. Gold leads (it's the primary/brand
+// hue); everything else sits in the same warm-muted family, no neon.
 const PALETTE = [
-  "#3B6FD4", // suite blue   (chart-4)
-  "#1F9D6B", // suite green  (chart-2)
-  "#c79a3f", // amber-gold   (chart-5)
-  "#CF4444", // suite red    (chart-1)
+  "#C9A050", // gold        (chart-1 / primary)
+  "#4E9B72", // warm green  (chart-2)
+  "#C1573C", // terracotta  (chart-3)
+  "#6f8fae", // muted steel-blue (chart-4)
   "#6b6455", // warm slate
   "#4c9a8e", // muted teal
   "#a97c1c", // amber
-  "#a3231f", // clay / deep red (chart-3)
+  "#8B6FB0", // muted violet (chart-5)
 ];
 
 // Fixed colors per GICS sector — warm, muted, on-brand and visually
 // distinct; consistent across all charts.
 const SECTOR_COLORS: Record<string, string> = {
-  "Technology":     "#3B6FD4", // suite blue
-  "Financials":     "#1F9D6B", // suite green
-  "Healthcare":     "#7c5cbf", // muted violet
+  "Technology":     "#6f8fae", // muted steel-blue
+  "Financials":     "#4E9B72", // warm green
+  "Healthcare":     "#8B6FB0", // muted violet
   "Industrials":    "#a97c1c", // amber
   "Comm. Services": "#b5567f", // muted rose
   "Cons. Disc.":    "#c26a3a", // clay / warm orange
   "Cons. Staples":  "#7a9440", // muted olive
-  "Energy":         "#CF4444", // suite red
+  "Energy":         "#C1573C", // terracotta
   "Materials":      "#4c9a8e", // muted teal
   "Real Estate":    "#9a6ea0", // mauve
   "Utilities":      "#5a8c6f", // sage
   "Bond Funds":     "#6b6455", // warm slate
-  "Funds":          "#c79a3f", // amber-gold
+  "Funds":          "#C9A050", // gold
   "Other":          "#a3998a", // warm gray
 };
 function sectorColor(name: string, fallbackIdx: number): string {
@@ -84,14 +84,14 @@ function sectorLabel(s: string) { return SECTOR_FULL[s] ?? s; }
 
 
 function plBgFg(pct: number): { bg: string; fg: string } {
-  if (pct >= 10)  return { bg: "#157f57", fg: "#e3f3ec" };
-  if (pct >= 5)   return { bg: "#1F9D6B", fg: "#ecfdf5" };
-  if (pct >= 2)   return { bg: "#9ED3BC", fg: "#0f5a3d" };
-  if (pct >= 0)   return { bg: "#D7EDE5", fg: "#0f5a3d" };
-  if (pct >= -2)  return { bg: "#F6DDDD", fg: "#8a201d" };
-  if (pct >= -5)  return { bg: "#E9ABAB", fg: "#7c1c19" };
-  if (pct >= -10) return { bg: "#CF4444", fg: "#fff"    };
-  return            { bg: "#a3231f",      fg: "#fff"    };
+  if (pct >= 10)  return { bg: "#3f7a5c", fg: "#e3f3ec" };
+  if (pct >= 5)   return { bg: "#4E9B72", fg: "#ecfdf5" };
+  if (pct >= 2)   return { bg: "#a8cdb8", fg: "#123524" };
+  if (pct >= 0)   return { bg: "#dbe8de", fg: "#123524" };
+  if (pct >= -2)  return { bg: "#efd9d0", fg: "#6b2a1a" };
+  if (pct >= -5)  return { bg: "#dba28c", fg: "#5c2214" };
+  if (pct >= -10) return { bg: "#C1573C", fg: "#fff"    };
+  return            { bg: "#8f3823",      fg: "#fff"    };
 }
 
 function TreemapContent(props: any) {
@@ -249,7 +249,7 @@ function PeriodToggle({ value, onChange, compact }: {
             "rounded font-medium transition-colors",
             compact ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs",
             value === p
-              ? "bg-gradient-to-r from-sky-400/90 to-blue-600/80 text-white shadow-[0_0_12px_-4px_oklch(0.74_0.135_235_/_0.8)]"
+              ? "bg-primary text-primary-foreground shadow-[0_0_10px_-4px_var(--primary)]"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
@@ -360,8 +360,20 @@ function CapitalSnapshot({
   const since = periodSince(period, navSeries, asOf);
 
   if (!activity) return (
-    <div className="flex items-center justify-center text-xs text-muted-foreground h-full">
-      Select a period to see the capital snapshot
+    <div className="flex-1 flex items-center justify-center">
+      <div className="text-center max-w-[220px] px-2">
+        <PiggyBank className="w-9 h-9 mx-auto mb-3 text-primary/50" />
+        <p className="text-sm font-medium text-foreground mb-1">No activity yet</p>
+        <p className="text-xs text-muted-foreground mb-4">
+          Capital flows and gains for this period show up here once you upload transactions.
+        </p>
+        <Link
+          to="/upload"
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium px-3.5 py-1.5 hover:opacity-90 transition-opacity"
+        >
+          Upload a statement
+        </Link>
+      </div>
     </div>
   );
 
@@ -638,8 +650,8 @@ function Dashboard() {
               <AreaChart data={navChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="navGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#3B6FD4" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#3B6FD4" stopOpacity={0} />
+                    <stop offset="5%"  stopColor="#C9A050" stopOpacity={0.22} />
+                    <stop offset="95%" stopColor="#C9A050" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="date" tickFormatter={navTickFormatter} tick={TICK} tickLine={false} axisLine={false} minTickGap={48} />
@@ -649,19 +661,19 @@ function Dashboard() {
                   domain={[(dataMin: number) => dataMin * 0.995, (dataMax: number) => dataMax * 1.005]}
                 />
                 <Tooltip content={<NavTooltip />} />
-                <Area type="monotone" dataKey="value" stroke="#3B6FD4" strokeWidth={2} fill="url(#navGrad)" dot={false} activeDot={{ r: 4, fill: "#3B6FD4" }} />
+                <Area type="monotone" dataKey="value" stroke="#C9A050" strokeWidth={2} fill="url(#navGrad)" dot={false} activeDot={{ r: 4, fill: "#C9A050" }} />
               </AreaChart>
             </ResponsiveContainer>
           )}
         </Card>
 
         {/* Partners Capital Snapshot — own period toggle */}
-        <Card className="p-5">
+        <Card className="p-5 flex flex-col">
           <h2 className="text-sm font-semibold text-foreground mb-3">Capital Snapshot</h2>
           <PeriodToggle value={snapshotPeriod} onChange={setSnapshotPeriod} compact />
-          <div className="mt-3">
+          <div className="mt-3 flex-1 flex flex-col">
             {isLoading ? (
-              <div className="text-xs text-muted-foreground animate-pulse">Loading…</div>
+              <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground animate-pulse">Loading…</div>
             ) : (
               <CapitalSnapshot
                 txns={txns}
@@ -696,10 +708,10 @@ function Dashboard() {
         <div className="flex items-center gap-2 mt-2 px-0.5">
           <span className="text-[10px] tabular-nums text-muted-foreground shrink-0">≤ −10%</span>
           <div className="flex-1 h-1.5 rounded-l-full"
-            style={{ background: "linear-gradient(to right, #a3231f, #CF4444, #E9ABAB, #F6DDDD)" }} />
+            style={{ background: "linear-gradient(to right, #8f3823, #C1573C, #dba28c, #efd9d0)" }} />
           <span className="text-[10px] text-muted-foreground shrink-0 px-0.5">0</span>
           <div className="flex-1 h-1.5 rounded-r-full"
-            style={{ background: "linear-gradient(to right, #D7EDE5, #9ED3BC, #1F9D6B, #157f57)" }} />
+            style={{ background: "linear-gradient(to right, #dbe8de, #a8cdb8, #4E9B72, #3f7a5c)" }} />
           <span className="text-[10px] tabular-nums text-muted-foreground shrink-0">≥ +10%</span>
         </div>
       </div>
@@ -812,7 +824,7 @@ function Dashboard() {
                 className={cn(
                   "px-2.5 py-1 rounded text-xs font-medium transition-colors",
                   sectorBenchmark === b
-                    ? "bg-gradient-to-r from-sky-400/90 to-blue-600/80 text-white shadow-[0_0_12px_-4px_oklch(0.74_0.135_235_/_0.8)]"
+                    ? "bg-primary text-primary-foreground shadow-[0_0_10px_-4px_var(--primary)]"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -851,10 +863,10 @@ function Dashboard() {
                 contentStyle={TOOLTIP_STYLE}
               />
               <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-              <Bar dataKey="Portfolio" fill="#3B6FD4" maxBarSize={22} />
+              <Bar dataKey="Portfolio" fill="#C9A050" maxBarSize={22} />
               {sectorBenchmark === "SPY"
                 ? <Bar dataKey="SPY" fill="#6b6455" maxBarSize={22} />
-                : <Bar dataKey="QQQ" fill="#7c5cbf" maxBarSize={22} />
+                : <Bar dataKey="QQQ" fill="#8B6FB0" maxBarSize={22} />
               }
             </BarChart>
           </ResponsiveContainer>
@@ -879,8 +891,8 @@ function Dashboard() {
                 <YAxis tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} tick={TICK} width={40} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number, n: string) => [formatMoney(v), n]} contentStyle={TOOLTIP_STYLE} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="Dividends" stackId="i" fill="#1F9D6B" stroke="white" strokeWidth={1} maxBarSize={28} />
-                <Bar dataKey="Interest"  stackId="i" fill="#3B6FD4" stroke="white" strokeWidth={1} maxBarSize={28} />
+                <Bar dataKey="Dividends" stackId="i" fill="#4E9B72" stroke="white" strokeWidth={1} maxBarSize={28} />
+                <Bar dataKey="Interest"  stackId="i" fill="#C9A050" stroke="white" strokeWidth={1} maxBarSize={28} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -892,10 +904,19 @@ function Dashboard() {
 
 function EmptyState({ height = 240 }: { height?: number }) {
   return (
-    <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height }}>
-      <div className="text-center">
-        <PiggyBank className="w-8 h-8 mx-auto mb-2 opacity-20" />
-        No positions yet — upload a file to get started.
+    <div className="flex items-center justify-center" style={{ height }}>
+      <div className="text-center max-w-xs px-4">
+        <PiggyBank className="w-9 h-9 mx-auto mb-3 text-primary/50" />
+        <p className="text-sm font-medium text-foreground mb-1">No positions yet</p>
+        <p className="text-xs text-muted-foreground mb-4">
+          Upload a broker statement or CSV export and this chart fills in automatically.
+        </p>
+        <Link
+          to="/upload"
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium px-3.5 py-1.5 hover:opacity-90 transition-opacity"
+        >
+          Upload a statement
+        </Link>
       </div>
     </div>
   );

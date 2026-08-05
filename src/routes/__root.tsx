@@ -78,7 +78,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       // Lock the mobile browser chrome (iOS status bar / toolbar) to the app's
       // dark background. Without this, iOS Safari samples the page edge and the
       // drawer's dark backdrop gets stuck tinting the chrome until a refresh.
-      { name: "theme-color", content: "#030509" },
+      { name: "theme-color", content: "#241f1a" },
     ],
     links: [
       {
@@ -87,7 +87,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         rel: "icon",
-        href: "/logo.png",
+        type: "image/svg+xml",
+        href: "/favicon.svg",
       },
     ],
   }),

@@ -256,8 +256,8 @@ function AppLayout() {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-sky-400 to-blue-700 flex items-center justify-center shrink-0 shadow-[0_0_12px_-2px_oklch(0.74_0.135_235_/_0.6)]">
-              <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10.5" stroke="#04101f" strokeWidth="4" opacity="0.55"/><path d="M16 5.5 a10.5 10.5 0 0 1 9.1 5.25" stroke="#04101f" strokeWidth="4" strokeLinecap="round"/></svg>
+            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center shrink-0">
+              <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M7 22 L14 15 L18 18.5 L25 9" stroke="#100d09" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 9 L25 9 L25 15.5" stroke="#100d09" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
             <span className="font-display font-semibold text-sm tracking-tight">StockStarter</span>
           </div>
@@ -284,8 +284,8 @@ function AppLayout() {
           {/* Logo */}
           <div className="px-5 py-5 border-b border-sidebar-border flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-400 to-blue-700 flex items-center justify-center shrink-0 shadow-[0_0_14px_-2px_oklch(0.74_0.135_235_/_0.65)]">
-                <svg width="16" height="16" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10.5" stroke="#04101f" strokeWidth="4" opacity="0.55"/><path d="M16 5.5 a10.5 10.5 0 0 1 9.1 5.25" stroke="#04101f" strokeWidth="4" strokeLinecap="round"/></svg>
+              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                <svg width="16" height="16" viewBox="0 0 32 32" fill="none"><path d="M7 22 L14 15 L18 18.5 L25 9" stroke="#100d09" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 9 L25 9 L25 15.5" stroke="#100d09" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
               <span className="font-display font-semibold text-sm tracking-tight">StockStarter</span>
             </div>
@@ -324,7 +324,7 @@ function AppLayout() {
                         className={cn(
                           "flex items-center gap-2.5 px-2.5 py-1.5 rounded-full text-sm transition-all duration-300",
                           active
-                            ? "text-sidebar-primary-foreground font-medium bg-gradient-to-r from-sky-400/90 to-blue-600/80 shadow-[0_0_18px_-4px_oklch(0.74_0.135_235_/_0.8),inset_0_1px_0_0_oklch(0.9_0.05_235_/_0.4)]"
+                            ? "text-sidebar-primary-foreground font-medium bg-sidebar-primary shadow-[0_0_14px_-4px_var(--primary)]"
                             : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent",
                         )}
                       >
