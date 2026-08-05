@@ -93,7 +93,7 @@ function buildContext(
     }
   }
 
-  // Per-account breakdown — each account is one Excel file in the Dropbox folder.
+  // Per-account breakdown — each account is one uploaded Excel/CSV file.
   // Lets the assistant answer questions about a specific account by name.
   const accountNames = Array.from(
     new Set(resolvedTxns.map((t: any) => (t.account ?? "(unassigned)"))),

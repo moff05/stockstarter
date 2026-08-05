@@ -43,8 +43,8 @@ const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 min window & lockout
 const loginAttempts = new Map(); // clientKey -> { count, resetAt }
 
-// Content-Security-Policy. Every external API (Yahoo Finance, Dropbox, the
-// Anthropic AI chat) is called SERVER-side, so the browser makes no cross-origin
+// Content-Security-Policy. Every external API (Yahoo Finance, the Anthropic
+// AI chat) is called SERVER-side, so the browser makes no cross-origin
 // requests — connect-src 'self' suffices. style-src allows inline styles (the
 // login page's inline <style> block + component-injected styles). script-src is
 // deliberately strict; if the SSR framework injects inline hydration scripts we

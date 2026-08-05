@@ -1,6 +1,6 @@
 # StockStarter
 
-A beginner-friendly, self-hosted stock portfolio tracker. Upload a broker export (or sync a shared Dropbox folder) and get real holdings, performance, income, and tax-loss insight — without needing to understand a brokerage statement to read it.
+A beginner-friendly, self-hosted stock portfolio tracker. Upload a broker export and get real holdings, performance, income, and tax-loss insight — without needing to understand a brokerage statement to read it.
 
 Reads broker export files (Excel or CSV), resolves holdings, fetches live prices from Yahoo Finance, and delivers analytics across performance, income, risk, and taxes. Runs as a **hosted web app** behind a shared-password gate. Accessible on web and mobile.
 
@@ -9,7 +9,7 @@ Reads broker export files (Excel or CSV), resolves holdings, fetches live prices
 ## Features
 
 ### Accounts
-- One account per uploaded file (or per file in a synced Dropbox folder — filename = account name)
+- One account per uploaded file — filename becomes the account name
 - Sidebar account switcher: per-account views plus a consolidated "All accounts" view
 
 ### Dashboard
@@ -62,7 +62,7 @@ Reads broker export files (Excel or CSV), resolves holdings, fetches live prices
 
 Open the hosted URL in any browser (desktop or mobile) and sign in with the shared access password. There is nothing to install. The UI is responsive — on phones the nav collapses into a drawer, and "Add to Home Screen" makes it behave like an app.
 
-New account data: upload an `.xlsx`/`.csv` file directly, or — if Dropbox sync is configured — drop it into the shared folder and click **Refresh from Dropbox** in the sidebar. Overwrite a file with the same name to update that account. Failed logins are rate-limited (5 attempts per IP → 15-minute lockout).
+New account data: upload an `.xlsx`/`.csv` file directly from `/upload`. Overwrite a file with the same name to update that account. Failed logins are rate-limited (5 attempts per IP → 15-minute lockout).
 
 ---
 
@@ -73,7 +73,7 @@ New account data: upload an `.xlsx`/`.csv` file directly, or — if Dropbox sync
 | Runtime | Bun v1.3.14 |
 | Framework | TanStack Start v1.167 (Vite-native) + React 19 |
 | Router | TanStack Router (file-based) |
-| Database | SQLite (`bun:sqlite`) — local cache, rebuilt from your uploads/Dropbox |
+| Database | SQLite (`bun:sqlite`) — local cache, rebuilt from your uploads |
 | Styling | Tailwind v4 + shadcn/ui |
 | Charts | Recharts |
 | Excel parsing | SheetJS (client-side) |
@@ -116,17 +116,14 @@ The production build is a standalone Bun server (`server/server.mjs`) that serve
 | `APP_PASSWORD` | Shared access-gate password (required; server refuses to start without it) |
 | `ANTHROPIC_API_KEY` | AI chat |
 | `DB_PATH` | SQLite path — point this at a persistent volume in production |
-| `DROPBOX_APP_KEY` / `DROPBOX_APP_SECRET` / `DROPBOX_REFRESH_TOKEN` | Optional — Dropbox sync auth (see `scripts/dropbox-auth.mjs`) |
-| `DROPBOX_FOLDER` | Optional — synced folder path, e.g. `/StockStarter/Broker Exports` |
-| `DROPBOX_ROOT_NAMESPACE_ID` | Optional — only for Dropbox Business/team-space folders |
 
-Dropbox sync is entirely optional — the app works fine on manual upload alone (`/upload`) if none of the `DROPBOX_*` vars are set. The gate rate-limits failed logins (5 attempts per IP → 15-min lockout). Mount a persistent volume for `DB_PATH` in production so the cache survives redeploys.
+The gate rate-limits failed logins (5 attempts per IP → 15-min lockout). Mount a persistent volume for `DB_PATH` in production so the cache survives redeploys.
 
 ---
 
 ## Data & privacy
 
-- Your broker export files are the source of truth. The server keeps a derived SQLite cache (`DB_PATH`), rebuilt from your uploads (or Dropbox, if configured).
+- Your broker export files are the source of truth. The server keeps a derived SQLite cache (`DB_PATH`), rebuilt from your uploads.
 - The whole app sits behind a shared-password gate over HTTPS; only `/healthz` is public.
 - Prices are fetched from Yahoo Finance on demand and cached in the database.
 - No third-party telemetry. The `.env` file (dev API key) is gitignored.
@@ -159,8 +156,6 @@ src/
 │   ├── prices.functions.ts # Yahoo Finance quotes + history
 │   ├── performance.functions.ts # TWR server fn + NAV history
 │   ├── db.server.ts        # SQLite schema + WAL setup
-│   ├── dropbox.server.ts   # Dropbox API client (optional hosted sync)
-│   ├── sync.server.ts      # Reconcile Dropbox folder → accounts (filename = account)
 │   ├── chat.functions.ts   # AI chat context (account-aware) + Anthropic call
 │   ├── account-filter.tsx  # Selected-account context (sidebar switcher)
 │   └── cusip-seed.ts       # Built-in CUSIP → ticker seed
@@ -168,8 +163,6 @@ src/
 server/
 └── server.mjs              # Standalone Bun server + shared-password gate, login
                             # rate-limiting, /healthz
-scripts/
-└── dropbox-auth.mjs        # One-time Dropbox refresh-token bootstrap (optional)
 ```
 
 ---

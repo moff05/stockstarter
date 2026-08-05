@@ -1,109 +1,11 @@
 ﻿import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
-import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, RefreshCw, Menu, X, LogOut } from "lucide-react";
+import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, Menu, X, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatPanel } from "@/components/ChatPanel";
 import { AccountFilterProvider, useAccountFilter } from "@/lib/account-filter";
 import { listAccounts } from "@/lib/transactions.functions";
-import { syncDropbox, type SyncSummary } from "@/lib/sync.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { useState, useRef, useEffect } from "react";
-
-// Queries that depend on transaction data — invalidated after a Dropbox sync.
-const DEPENDENT_KEYS = [
-  ["transactions"], ["accounts"], ["nav-history"],
-  ["performance"], ["inception-date"], ["symbol_mappings"], ["prices"],
-];
-
-function timeAgo(iso: string): string {
-  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
-function DropboxSync() {
-  const qc = useQueryClient();
-  const [busy, setBusy] = useState(false);
-
-  const invalidate = () => {
-    for (const k of DEPENDENT_KEYS) qc.invalidateQueries({ queryKey: k });
-  };
-
-  // Auto-sync on load, on window refocus, and every 15 minutes while open.
-  const syncQ = useQuery({
-    queryKey: ["dropbox-sync"],
-    queryFn: async () => (await syncDropbox({ data: {} })) as SyncSummary,
-    refetchInterval: 15 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    staleTime: 15 * 60 * 1000,
-  });
-
-  // Refresh dependent views whenever a sync actually changed something.
-  useEffect(() => {
-    const s = syncQ.data;
-    if (!s || !s.configured) return;
-    const changed = s.accounts.some((a) => a.status === "imported") || s.removed.length > 0;
-    if (changed) invalidate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [syncQ.dataUpdatedAt]);
-
-  const summary = syncQ.data;
-  // Stay hidden until Dropbox is configured, so it doesn't clutter Phase-0 installs.
-  if (summary && !summary.configured) return null;
-
-  async function manualRefresh() {
-    setBusy(true);
-    try {
-      const s = (await syncDropbox({ data: { force: true } })) as SyncSummary;
-      invalidate();
-      qc.setQueryData(["dropbox-sync"], s);
-      const imported = s.accounts.filter((a) => a.status === "imported");
-      const unsupported = s.accounts.filter((a) => a.status === "unsupported");
-      const errored = s.accounts.filter((a) => a.status === "error");
-      if (errored.length) {
-        toast.error(`Sync issue: ${errored.map((e) => e.account).join(", ")}`);
-      } else {
-        let msg = imported.length
-          ? `Synced ${imported.length} account${imported.length > 1 ? "s" : ""}`
-          : "Already up to date";
-        if (s.removed.length) msg += `, removed ${s.removed.length}`;
-        if (unsupported.length) msg += ` · ${unsupported.length} unsupported`;
-        // Flag partially-incomplete files so a truncated import isn't mistaken for a clean one.
-        const skipped = imported.reduce((sum, a) => sum + (a.skipped ?? 0), 0);
-        if (skipped) msg += ` · ${skipped} row${skipped > 1 ? "s" : ""} skipped`;
-        toast.success(msg);
-      }
-    } catch (e: any) {
-      toast.error("Sync failed: " + (e?.message ?? "unknown error"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const syncing = busy || syncQ.isFetching;
-
-  return (
-    <div className="px-3 pb-3">
-      <button
-        onClick={manualRefresh}
-        disabled={syncing}
-        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-60"
-      >
-        <RefreshCw className={cn("w-3.5 h-3.5 shrink-0", syncing && "animate-spin")} />
-        <span className="flex-1 text-left">{syncing ? "Syncing…" : "Refresh from Dropbox"}</span>
-      </button>
-      {summary?.syncedAt && !syncing && (
-        <p className="px-2 mt-1 text-[10px] text-muted-foreground">
-          Synced {timeAgo(summary.syncedAt)}
-        </p>
-      )}
-    </div>
-  );
-}
 
 export const Route = createFileRoute("/_authenticated")({
   component: AppLayout,
@@ -340,7 +242,6 @@ function AppLayout() {
 
           {/* Footer — divided from the scrolling nav above. */}
           <div className="border-t border-sidebar-border pt-2 shrink-0">
-            <DropboxSync />
             <AccountSelector />
             <SignOutLink />
           </div>
