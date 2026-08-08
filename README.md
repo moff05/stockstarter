@@ -6,6 +6,16 @@ Reads broker export files (Excel or CSV), resolves holdings, fetches live prices
 
 ---
 
+## Why this exists
+
+Brokerage dashboards show you a number and stop there — no explanation of what it means, whether it's good, or what it costs you to not know. StockStarter starts from the same broker export you already have and builds the layer a brokerage has no incentive to build: real accounting (a balanced Balance Sheet, General Ledger, and Income Statement derived entirely from your transaction history, not just a portfolio value ticker), and a plain-English explanation attached to every metric that isn't self-evident — what Beta means, why FIFO and HIFO give you different tax numbers for the same sale, what a wash sale actually disallows.
+
+**The hardest part** turned out to be invisible in a demo: Yahoo Finance has no official API, and a single page load was firing a dozen-plus uncached requests for a handful of symbols — enough to trip its rate limit almost immediately. The failure mode was worse than a loading spinner: a rate-limited quote silently defaulted to $0, so a real portfolio would render as "down 100%" with no indication anything was wrong, and in one code path an unhandled rejection from a failed request could crash the whole server process. Fixed with an in-process cache that de-dupes concurrent requests and shares a short-lived result across the app, plus a rule that a missing price falls back to cost basis (an honest "no change") instead of a fabricated loss, flagged visibly so it's never presented as live data.
+
+**What I'd change**: the tax-loss and rebalancing pages give you real numbers but stop short of a "why this position" narrative the way the KPI tooltips do elsewhere — that's the next thing to close.
+
+---
+
 ## Features
 
 ### Accounts
