@@ -4,6 +4,10 @@ A beginner-friendly, self-hosted stock portfolio tracker. Upload a broker export
 
 Reads broker export files (Excel or CSV), resolves holdings, fetches live prices from Yahoo Finance, and delivers analytics across performance, income, risk, and taxes. Runs as a **hosted web app** behind a shared-password gate. Accessible on web and mobile.
 
+**[Live demo →](https://stockstarter-production.up.railway.app)** — password: `joVgb2h5EiIXbMOMIYF3` (gated demo account, synthetic data only)
+
+![StockStarter dashboard: portfolio value, NAV chart over time, and a per-position unrealized P/L treemap](docs/screenshots/dashboard.jpg)
+
 ---
 
 ## Why this exists
@@ -17,6 +21,8 @@ Brokerage dashboards show you a number and stop there — no explanation of what
 ---
 
 ## Features
+
+![StockStarter holdings table with FIFO/HIFO tax lots, beta, yield, and top/worst performer breakdowns](docs/screenshots/holdings.jpg)
 
 ### Accounts
 - One account per uploaded file — filename becomes the account name
@@ -70,7 +76,9 @@ Brokerage dashboards show you a number and stop there — no explanation of what
 
 ## Access
 
-Open the hosted URL in any browser (desktop or mobile) and sign in with the shared access password. There is nothing to install. The UI is responsive — on phones the nav collapses into a drawer, and "Add to Home Screen" makes it behave like an app.
+Open the [live demo](https://stockstarter-production.up.railway.app) in any browser (desktop or mobile) and sign in with the shared access password (`joVgb2h5EiIXbMOMIYF3`). There is nothing to install. The UI is responsive — on phones the nav collapses into a drawer, and "Add to Home Screen" makes it behave like an app.
+
+The demo account is seeded with synthetic transaction history, not a real portfolio.
 
 New account data: upload an `.xlsx`/`.csv` file directly from `/upload`. Overwrite a file with the same name to update that account. Failed logins are rate-limited (5 attempts per IP → 15-minute lockout).
 
