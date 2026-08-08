@@ -449,7 +449,7 @@ function Dashboard() {
                 domain={[(dataMin: number) => dataMin * 0.995, (dataMax: number) => dataMax * 1.005]}
               />
               <Tooltip content={<NavTooltip />} />
-              <Area type="monotone" dataKey="value" stroke="#C9A050" strokeWidth={2} fill="url(#navGrad)" dot={false} activeDot={{ r: 4, fill: "#C9A050" }} />
+              <Area type="monotone" dataKey="value" stroke="#C9A050" strokeWidth={2} fill="url(#navGrad)" dot={false} activeDot={{ r: 4, fill: "#C9A050" }} isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         )}
