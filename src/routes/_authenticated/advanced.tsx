@@ -6,6 +6,7 @@ import { AsOfDatePicker } from "@/components/AsOfDatePicker";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SortHead, useSortable, sortRows } from "@/components/SortHead";
+import { KpiLabel } from "@/components/KpiLabel";
 import { formatMoney, isoAddDays } from "@/lib/portfolio";
 import { getSector } from "@/lib/sector";
 import { getNavHistory, getPerformance, getInceptionDate } from "@/lib/performance.functions";
@@ -536,11 +537,11 @@ function AttributionSection({ rows }: { rows: AttributionRow[] }) {
           <TableRow>
             <SortHead label="Symbol"           sortKey="symbol"          sort={sort} onSort={handleSort} />
             <SortHead label="Start Value"      sortKey="startValue"      sort={sort} onSort={handleSort} className="text-right" />
-            <SortHead label="Capital Added"    sortKey="netInvested"     sort={sort} onSort={handleSort} className="text-right" />
+            <SortHead label="Capital Added"    sortKey="netInvested"     sort={sort} onSort={handleSort} className="text-right" tip="Money added to (or pulled out of) this position during the period, separate from market gains." />
             <SortHead label="End Value"        sortKey="endValue"        sort={sort} onSort={handleSort} className="text-right" />
-            <SortHead label="$ Gain / Loss"    sortKey="dollarsGained"   sort={sort} onSort={handleSort} className="text-right" />
+            <SortHead label="$ Gain / Loss"    sortKey="dollarsGained"   sort={sort} onSort={handleSort} className="text-right" tip="Dollar gain or loss from price movement alone — capital you added or withdrew doesn't count as a gain." />
             <SortHead label="Return"           sortKey="positionReturn"  sort={sort} onSort={handleSort} className="text-right" />
-            <SortHead label="% of Gain"         sortKey="contribution"    sort={sort} onSort={handleSort} className="text-right" />
+            <SortHead label="% of Gain"         sortKey="contribution"    sort={sort} onSort={handleSort} className="text-right" tip="This position's share of your portfolio's total dollar gain or loss for the period." />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -789,7 +790,7 @@ function AdvancedPage() {
                     const desc = beta > 1.05 ? "more volatile than market" : beta < 0.95 ? "less volatile than market" : "moves with market";
                     return (
                       <>
-                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Portfolio Beta</p>
+                        <KpiLabel tip="How much your portfolio tends to move relative to the benchmark. 1.0 = moves with it, above 1.0 = swings harder in both directions, below 1.0 = steadier.">Portfolio Beta</KpiLabel>
                         <div className="text-2xl font-bold tabular-nums leading-tight text-foreground">{beta.toFixed(2)}</div>
                         <div className="text-xs mt-1 text-muted-foreground">vs. {benchLabel} — {desc}</div>
                       </>
@@ -797,7 +798,7 @@ function AdvancedPage() {
                   }
                   return (
                     <>
-                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Portfolio Beta</p>
+                      <KpiLabel tip="How much your portfolio tends to move relative to the benchmark. 1.0 = moves with it, above 1.0 = swings harder in both directions, below 1.0 = steadier.">Portfolio Beta</KpiLabel>
                       <div className="text-2xl font-bold tracking-tight text-muted-foreground">—</div>
                       <div className="text-xs mt-1">needs ≥ 4 sub-periods</div>
                     </>
@@ -806,7 +807,7 @@ function AdvancedPage() {
               </Card>
 
               <Card className="p-5 min-w-0">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">IRR</p>
+                <KpiLabel tip="Internal rate of return: the annualized growth rate that accounts for exactly when you added or withdrew money, not just the start and end value.">IRR</KpiLabel>
                 {result.irr != null ? (
                   <>
                     <div className={numCls(fmt(result.irr), result.irr >= 0 ? "text-gain" : "text-loss")}>{fmt(result.irr)}</div>
@@ -821,7 +822,7 @@ function AdvancedPage() {
               </Card>
 
               <Card className="p-5 min-w-0">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">MOIC</p>
+                <KpiLabel tip="Multiple on invested capital: total value divided by total cash put in. 1.50x means every dollar invested is now worth $1.50.">MOIC</KpiLabel>
                 {result.moic != null ? (
                   <>
                     <div className={cn("text-2xl font-bold tracking-tight tabular-nums", result.moic >= 1 ? "text-gain" : "text-loss")}>{result.moic.toFixed(2)}x</div>
@@ -836,7 +837,7 @@ function AdvancedPage() {
               </Card>
 
               <Card className="p-5 min-w-0">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Sharpe Ratio</p>
+                <KpiLabel tip="Return earned per unit of risk taken, above the risk-free rate. Higher is better — it rewards steady gains over volatile ones, not just raw return.">Sharpe Ratio</KpiLabel>
                 {result.sharpe != null ? (
                   <>
                     <div className={cn("text-2xl font-bold tracking-tight tabular-nums", result.sharpe >= 1 ? "text-gain" : result.sharpe >= 0 ? "text-foreground" : "text-loss")}>{result.sharpe.toFixed(2)}</div>

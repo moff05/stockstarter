@@ -36,10 +36,10 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 function SortHead({
-  label, sortKey, sort, onSort, className,
+  label, sortKey, sort, onSort, className, tip,
 }: {
   label: string; sortKey: SortKey; sort: SortConfig;
-  onSort: (k: SortKey) => void; className?: string;
+  onSort: (k: SortKey) => void; className?: string; tip?: string;
 }) {
   const active = sort?.key === sortKey;
   return (
@@ -50,6 +50,23 @@ function SortHead({
       <span className="inline-flex items-center gap-1">
         {label}
         <SortIcon active={active} dir={sort?.dir ?? "desc"} />
+        {tip && (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-muted-foreground/50 text-[9px] leading-none hover:border-muted-foreground hover:text-muted-foreground transition-colors cursor-help flex-shrink-0 normal-case font-normal"
+                >
+                  ?
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[200px] text-xs leading-relaxed">
+                {tip}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </span>
     </TableHead>
   );
@@ -245,6 +262,20 @@ function Holdings() {
               </button>
             ))}
           </div>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-muted-foreground/50 text-[9px] leading-none hover:border-muted-foreground hover:text-muted-foreground transition-colors cursor-help">
+                  ?
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
+                Which shares count as "sold first" when you sell part of a position — affects your reported
+                gain/loss and taxes. FIFO: oldest shares first. HIFO: highest-cost shares first (usually
+                lowers your taxable gain).
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <AsOfDatePicker value={asOf} onChange={setAsOf} />
         </div>
       </div>
@@ -263,10 +294,10 @@ function Holdings() {
               {top5.map((h) => (
                 <div key={h.symbol} className="flex items-center gap-3">
                   <span className="w-14 shrink-0 text-sm font-semibold text-foreground">{h.symbol}</span>
-                  <PerformerBar pct={h.unrealizedPLPct} maxPct={maxTopPct} gain={true} />
+                  <PerformerBar pct={h.unrealizedPLPct} maxPct={maxTopPct} gain={h.unrealizedPLPct >= 0} />
                   <div className="shrink-0 text-right w-28">
-                    <div className="text-sm font-bold text-gain leading-snug">
-                      +{h.unrealizedPLPct.toFixed(1)}%
+                    <div className={cn("text-sm font-bold leading-snug", h.unrealizedPLPct >= 0 ? "text-gain" : "text-loss")}>
+                      {h.unrealizedPLPct >= 0 ? "+" : ""}{h.unrealizedPLPct.toFixed(1)}%
                     </div>
                     <div className="text-[11px] text-muted-foreground leading-snug">
                       {formatMoney(h.unrealizedPL)}
@@ -307,16 +338,16 @@ function Holdings() {
               <TableHead className="w-8" />
               <SortHead label="Symbol"         sortKey="symbol"               sort={sort} onSort={handleSort} />
               <SortHead label="Qty"            sortKey="quantity"             sort={sort} onSort={handleSort} className="text-right" />
-              <SortHead label="Avg Cost"       sortKey="avgCost"              sort={sort} onSort={handleSort} className="text-right" />
+              <SortHead label="Avg Cost"       sortKey="avgCost"              sort={sort} onSort={handleSort} className="text-right" tip="Average price paid per share, blended across every purchase (lot) of this position." />
               <SortHead label="Price"          sortKey="marketPrice"          sort={sort} onSort={handleSort} className="text-right" />
               <SortHead label="Market Value"   sortKey="marketValue"          sort={sort} onSort={handleSort} className="text-right" />
               <SortHead label="Cost Basis"     sortKey="costBasis"            sort={sort} onSort={handleSort} className="text-right" />
-              <SortHead label="Unrealized P/L" sortKey="unrealizedPL"         sort={sort} onSort={handleSort} className="text-right" />
+              <SortHead label="Unrealized P/L" sortKey="unrealizedPL"         sort={sort} onSort={handleSort} className="text-right" tip="Paper gain or loss: what you'd make or lose if you sold right now. Not real until you actually sell." />
               <SortHead label="%"              sortKey="unrealizedPLPct"      sort={sort} onSort={handleSort} className="text-right" />
-              <SortHead label="Weight"         sortKey="weightPct"            sort={sort} onSort={handleSort} className="text-right" />
-              <SortHead label="Beta"           sortKey="beta"                 sort={sort} onSort={handleSort} className="text-right" />
-              <SortHead label="Yield"          sortKey="dividendYield"        sort={sort} onSort={handleSort} className="text-right" />
-              <SortHead label="Ann. Income"    sortKey="annualDividendIncome" sort={sort} onSort={handleSort} className="text-right" />
+              <SortHead label="Weight"         sortKey="weightPct"            sort={sort} onSort={handleSort} className="text-right" tip="What share of your total portfolio value this position makes up." />
+              <SortHead label="Beta"           sortKey="beta"                 sort={sort} onSort={handleSort} className="text-right" tip="How much this position tends to move relative to the S&P 500. 1.0 = moves with the market, above 1.0 = more volatile, below 1.0 = less volatile." />
+              <SortHead label="Yield"          sortKey="dividendYield"        sort={sort} onSort={handleSort} className="text-right" tip="Annual dividend income as a percentage of the current price." />
+              <SortHead label="Ann. Income"    sortKey="annualDividendIncome" sort={sort} onSort={handleSort} className="text-right" tip="Expected dividend income over the next 12 months, based on the current yield and how many shares you hold." />
             </TableRow>
           </TableHeader>
           <TableBody>

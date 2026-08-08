@@ -18,12 +18,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Loader2, Gauge } from "lucide-react";
 import type { ChartPoint } from "@/lib/twr";
-import {
-  Tooltip as KTip,
-  TooltipContent as KTipContent,
-  TooltipProvider as KTipProvider,
-  TooltipTrigger as KTipTrigger,
-} from "@/components/ui/tooltip";
+import { KpiLabel } from "@/components/KpiLabel";
 
 export const Route = createFileRoute("/_authenticated/performance")({
   head: () => ({ meta: [{ title: "Performance — StockStarter" }] }),
@@ -68,25 +63,6 @@ function numCls(s: string, colorCls = "") {
   return cn(size, "font-bold tracking-tight tabular-nums leading-tight", colorCls);
 }
 
-function KpiLabel({ tip, children }: { tip: string; children: React.ReactNode }) {
-  return (
-    <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-      {children}
-      <KTipProvider delayDuration={300}>
-        <KTip>
-          <KTipTrigger asChild>
-            <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-muted-foreground/50 text-[9px] leading-none hover:border-muted-foreground hover:text-muted-foreground transition-colors cursor-help flex-shrink-0">
-              ?
-            </span>
-          </KTipTrigger>
-          <KTipContent side="top" className="max-w-[200px] text-xs leading-relaxed">
-            {tip}
-          </KTipContent>
-        </KTip>
-      </KTipProvider>
-    </div>
-  );
-}
 
 function fmtDate(iso: string) {
   return new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", {

@@ -5,8 +5,10 @@ import { usePortfolio } from "@/hooks/use-portfolio";
 import { buildLots } from "@/lib/tax-lots";
 import { DataIntegrityBanner } from "@/components/DataIntegrityBanner";
 import { SortHead, useSortable, sortRows } from "@/components/SortHead";
+import { KpiLabel } from "@/components/KpiLabel";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMoney } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
 
@@ -135,36 +137,36 @@ function TaxLossPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+          <KpiLabel tip="Total unrealized loss across every position eligible to sell for a tax write-off right now.">
             Total Harvestable Loss
-          </p>
+          </KpiLabel>
           <p className="text-2xl font-bold tabular-nums text-loss">
             {isLoading ? "—" : formatMoney(totalLoss)}
           </p>
           <p className="text-xs mt-1">{candidates.length} positions</p>
         </Card>
         <Card className="p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+          <KpiLabel tip="Losses on positions held over a year. Taxed (and deductible) at the lower long-term capital gains rate.">
             Long-Term Loss
-          </p>
+          </KpiLabel>
           <p className="text-2xl font-bold tabular-nums text-loss">
             {isLoading ? "—" : formatMoney(totalLtLoss)}
           </p>
           <p className="text-xs mt-1 text-gain">Est. saving: {isLoading ? "—" : formatMoney(ltSavings)} @ 20%</p>
         </Card>
         <Card className="p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+          <KpiLabel tip="Losses on positions held a year or less. Deductible at the higher short-term (ordinary income) rate.">
             Short-Term Loss
-          </p>
+          </KpiLabel>
           <p className="text-2xl font-bold tabular-nums text-loss">
             {isLoading ? "—" : formatMoney(totalStLoss)}
           </p>
           <p className="text-xs mt-1 text-gain">Est. saving: {isLoading ? "—" : formatMoney(stSavings)} @ 37%</p>
         </Card>
         <Card className="p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+          <KpiLabel tip="Rough estimate of what selling every candidate below would save on this year's taxes. Not tax advice — actual savings depend on your full tax situation.">
             Total Est. Tax Savings
-          </p>
+          </KpiLabel>
           <p className="text-2xl font-bold tabular-nums text-gain">
             {isLoading ? "—" : formatMoney(totalSavings)}
           </p>
@@ -186,12 +188,28 @@ function TaxLossPage() {
                 <TableHead className="w-8" />
                 <SortHead label="Symbol"           sortKey="symbol"         sort={sort} onSort={handleSort} />
                 <SortHead label="Market Value"     sortKey="marketValue"    sort={sort} onSort={handleSort} className="text-right" />
-                <SortHead label="Unrealized Loss"  sortKey="unrealizedPL"   sort={sort} onSort={handleSort} className="text-right" />
-                <SortHead label="LT Loss"          sortKey="ltLoss"         sort={sort} onSort={handleSort} className="text-right" />
-                <SortHead label="ST Loss"          sortKey="stLoss"         sort={sort} onSort={handleSort} className="text-right" />
+                <SortHead label="Unrealized Loss"  sortKey="unrealizedPL"   sort={sort} onSort={handleSort} className="text-right" tip="Paper loss if sold today — this is what selling for the write-off would lock in." />
+                <SortHead label="LT Loss"          sortKey="ltLoss"         sort={sort} onSort={handleSort} className="text-right" tip="Portion of the loss on lots held over a year (long-term rate)." />
+                <SortHead label="ST Loss"          sortKey="stLoss"         sort={sort} onSort={handleSort} className="text-right" tip="Portion of the loss on lots held a year or less (short-term rate)." />
                 <SortHead label="Loss %"           sortKey="unrealizedPLPct" sort={sort} onSort={handleSort} className="text-right" />
-                <SortHead label="Est. Savings"     sortKey="savings"        sort={sort} onSort={handleSort} className="text-right" />
-                <TableHead>Wash Sale Risk</TableHead>
+                <SortHead label="Est. Savings"     sortKey="savings"        sort={sort} onSort={handleSort} className="text-right" tip="Estimated tax reduction from harvesting this loss, at the applicable LT/ST rate." />
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    Wash Sale Risk
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-muted-foreground/50 text-[9px] leading-none hover:border-muted-foreground hover:text-muted-foreground transition-colors cursor-help flex-shrink-0">
+                            ?
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[220px] text-xs leading-relaxed">
+                          The IRS disallows the loss if you buy the same (or a "substantially identical") security within 30 days before or after selling it. This flags positions where that's already happened.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

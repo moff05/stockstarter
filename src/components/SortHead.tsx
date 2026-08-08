@@ -1,6 +1,7 @@
 ﻿import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
 import { TableHead } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type SortDir = "asc" | "desc";
@@ -48,13 +49,14 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 export function SortHead({
-  label, sortKey, sort, onSort, className,
+  label, sortKey, sort, onSort, className, tip,
 }: {
   label: string;
   sortKey: string;
   sort: SortConfig;
   onSort: (k: string) => void;
   className?: string;
+  tip?: string;
 }) {
   const active = sort?.key === sortKey;
   return (
@@ -65,6 +67,23 @@ export function SortHead({
       <span className="inline-flex items-center gap-1">
         {label}
         <SortIcon active={active} dir={sort?.dir ?? "desc"} />
+        {tip && (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-muted-foreground/50 text-[9px] leading-none hover:border-muted-foreground hover:text-muted-foreground transition-colors cursor-help flex-shrink-0"
+                >
+                  ?
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[200px] text-xs leading-relaxed">
+                {tip}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </span>
     </TableHead>
   );

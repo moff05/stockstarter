@@ -3,6 +3,7 @@ import { useMemo, useState, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { SortHead, useSortable, sortRows } from "@/components/SortHead";
+import { KpiLabel } from "@/components/KpiLabel";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { getDividendEvents } from "@/lib/prices.functions";
 import { Card } from "@/components/ui/card";
@@ -149,27 +150,27 @@ function IncomePage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+          <KpiLabel tip="Actual dividend cash paid out over the last 12 months, per Yahoo Finance's recorded ex-dividend events for what you held at the time.">
             TTM Dividend Income
-          </p>
+          </KpiLabel>
           <p className="text-2xl font-bold tabular-nums text-foreground">
             {divQ.isLoading || isLoading ? "—" : formatMoney(ttmTotal)}
           </p>
           <p className="text-xs mt-1">trailing 12 months (Yahoo events)</p>
         </Card>
         <Card className="p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+          <KpiLabel tip="Forward-looking estimate: each position's current dividend yield applied to its current market value. Not a guarantee — yields and prices change.">
             Expected Annual Income
-          </p>
+          </KpiLabel>
           <p className="text-2xl font-bold tabular-nums text-gain">
             {isLoading ? "—" : formatMoney(expectedAnnual)}
           </p>
           <p className="text-xs mt-1">trailing yield × current market value</p>
         </Card>
         <Card className="p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+          <KpiLabel tip="Dividend and interest amounts as they actually appeared on your uploaded broker statements, all-time. Useful as a sanity check against the Yahoo-sourced TTM figure.">
             Recorded Div + Interest
-          </p>
+          </KpiLabel>
           <p className="text-2xl font-bold tabular-nums text-foreground">
             {isLoading ? "—" : formatMoney(dbDividendIncome)}
           </p>
@@ -192,9 +193,9 @@ function IncomePage() {
                 <TableHead className="w-8" />
                 <SortHead label="Symbol"       sortKey="symbol"               sort={sort} onSort={handleSort} />
                 <SortHead label="Shares"       sortKey="quantity"             sort={sort} onSort={handleSort} className="text-right" />
-                <SortHead label="Yield"        sortKey="dividendYield"        sort={sort} onSort={handleSort} className="text-right" />
-                <SortHead label="Ann. Income"  sortKey="annualDividendIncome" sort={sort} onSort={handleSort} className="text-right" />
-                <SortHead label="TTM Received" sortKey="ttmReceived"          sort={sort} onSort={handleSort} className="text-right" />
+                <SortHead label="Yield"        sortKey="dividendYield"        sort={sort} onSort={handleSort} className="text-right" tip="Annual dividend as a percentage of the current share price." />
+                <SortHead label="Ann. Income"  sortKey="annualDividendIncome" sort={sort} onSort={handleSort} className="text-right" tip="Expected yearly dividend income from this position, at current yield and share count." />
+                <SortHead label="TTM Received" sortKey="ttmReceived"          sort={sort} onSort={handleSort} className="text-right" tip="Dividends actually paid on this position over the trailing 12 months." />
                 <SortHead label="Last Dividend" sortKey="lastEventDate"       sort={sort} onSort={handleSort} className="text-right" />
               </TableRow>
             </TableHeader>
