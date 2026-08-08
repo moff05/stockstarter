@@ -7,6 +7,7 @@ import { UnmappedBanner } from "@/components/UnmappedBanner";
 import { DataIntegrityBanner } from "@/components/DataIntegrityBanner";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMoney } from "@/lib/portfolio";
 import { buildLots, type TaxLot } from "@/lib/tax-lots";
 import { cn } from "@/lib/utils";
@@ -392,15 +393,22 @@ function Holdings() {
                     <TableCell className="text-right tabular-nums">
                       <span className="inline-flex items-center gap-1">
                         {h.priceStale && (
-                          <span
-                            title="Live price unavailable right now, showing avg cost instead. Market value and unrealized P/L below are not real until this refreshes."
-                            className="inline-flex shrink-0"
-                          >
-                            <TriangleAlert
-                              className="w-3 h-3 text-amber-500"
-                              aria-label="Live price unavailable — showing avg cost"
-                            />
-                          </span>
+                          <TooltipProvider delayDuration={300}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex shrink-0 cursor-help">
+                                  <TriangleAlert
+                                    className="w-3 h-3 text-amber-500"
+                                    aria-label="Live price unavailable — showing avg cost"
+                                  />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[220px] text-xs leading-relaxed">
+                                Live price unavailable right now, showing avg cost instead. Market value and
+                                unrealized P/L below are not real until this refreshes.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         )}
                         {formatMoney(h.marketPrice)}
                       </span>
