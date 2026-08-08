@@ -1,10 +1,14 @@
-﻿import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect, useMemo } from "react";
 import { X, Send, Loader2, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { askPortfolio } from "@/lib/chat.functions";
 import { useAccountFilter } from "@/lib/account-filter";
+import { useQuery } from "@tanstack/react-query";
+import { listTransactions } from "@/lib/transactions.functions";
+import { listMappings } from "@/lib/symbol-mappings.functions";
+import { buildResolver } from "@/lib/symbol-resolver";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -97,6 +101,31 @@ function AssistantMessage({ content }: { content: string }) {
 
 export function ChatPanel() {
   const { account } = useAccountFilter();
+
+  // Chat needs the WHOLE portfolio (every account) to answer cross-account
+  // questions, regardless of which account is currently selected in the nav —
+  // so this fetches unfiltered, independent of usePortfolio()'s account scoping.
+  const txnsQ = useQuery({
+    queryKey: ["transactions", "all"],
+    queryFn: () => listTransactions({ data: {} }),
+    staleTime: Infinity,
+  });
+  const mappingsQ = useQuery({
+    queryKey: ["symbol_mappings"],
+    queryFn: () => listMappings(),
+    staleTime: Infinity,
+  });
+  const resolve = useMemo(() => buildResolver(mappingsQ.data ?? []), [mappingsQ.data]);
+  const resolvedTransactions = useMemo(
+    () =>
+      (txnsQ.data ?? []).map((t) => {
+        if (!t.symbol) return t;
+        const r = resolve(t.symbol);
+        return { ...t, symbol: r.ticker ?? r.original };
+      }),
+    [txnsQ.data, resolve],
+  );
+
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -126,7 +155,9 @@ export function ChatPanel() {
     setIsLoading(true);
 
     try {
-      const result = await askPortfolio({ data: { messages: history, account } });
+      const result = await askPortfolio({
+        data: { messages: history, account, transactions: resolvedTransactions as any },
+      });
       setMessages([...history, { role: "assistant", content: result.content }]);
     } catch (err) {
       setMessages([

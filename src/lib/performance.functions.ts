@@ -4,48 +4,48 @@ import { isoAddDays } from "./portfolio";
 import { computeTWR, computeIRR } from "./twr";
 import { annualizedVolatility, maxDrawdown, sharpeRatio, portfolioBeta } from "./risk";
 import { getRiskFreeRate } from "./prices.functions";
-import { buildResolver } from "./symbol-resolver";
 import { yahooChart } from "./prices.functions";
 import type { Transaction } from "./portfolio";
 
-export const getInceptionDate = createServerFn({ method: "GET" })
-  .inputValidator((d: { account?: string | null }) =>
-    z.object({ account: z.string().nullable().optional() }).parse(d ?? {}),
-  )
-  .handler(async ({ data }) => {
-    const { getDb } = await import("@/lib/db.server");
-    const db = getDb();
-    const row = data?.account
-      ? (db.prepare("SELECT MIN(trade_date) as d FROM transactions WHERE account = ?").get(data.account) as { d: string | null })
-      : (db.prepare("SELECT MIN(trade_date) as d FROM transactions").get() as { d: string | null });
-    return row?.d ?? null;
-  });
+// Transactions now live in the browser (localStorage), not a server DB — the
+// client sends its already symbol-resolved transaction list on every call.
+// price_cache stays server-side since it's shared market data, not user data.
+const txnSchema = z.object({
+  id: z.string(),
+  trade_date: z.string(),
+  symbol: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  action: z.string(),
+  quantity: z.number().nullable().optional(),
+  price: z.number().nullable().optional(),
+  amount: z.number(),
+  fees: z.number().nullable().optional(),
+  account: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  source: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+}).passthrough();
+
+function sortedAsc(transactions: unknown): Transaction[] {
+  const parsed = z.array(txnSchema).parse(transactions) as unknown as Transaction[];
+  return parsed.slice().sort((a, b) => a.trade_date.localeCompare(b.trade_date));
+}
 
 export const getPerformance = createServerFn({ method: "POST" })
-  .inputValidator((d: { startDate: string; endDate: string; account?: string | null }) =>
+  .inputValidator((d: { startDate: string; endDate: string; transactions: Transaction[] }) =>
     z
       .object({
         startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        account: z.string().nullable().optional(),
+        transactions: z.array(txnSchema),
       })
       .parse(d),
   )
   .handler(async ({ data }) => {
     const { getDb } = await import("@/lib/db.server");
     const db = getDb();
-    const { startDate, endDate, account } = data;
-
-    // Load + resolve transactions
-    const rawTxns = (account
-      ? db.prepare("SELECT * FROM transactions WHERE account = ? ORDER BY trade_date").all(account)
-      : db.prepare("SELECT * FROM transactions ORDER BY trade_date").all()) as any[];
-    const rawMappings = db.prepare("SELECT * FROM symbol_mappings").all() as any[];
-    const resolve = buildResolver(rawMappings as any);
-    const txns: Transaction[] = rawTxns.map((t: any) => ({
-      ...t,
-      symbol: t.symbol ? (resolve(t.symbol).ticker ?? t.symbol) : null,
-    }));
+    const { startDate, endDate } = data;
+    const txns = sortedAsc(data.transactions);
 
     // Sub-period CF dates — ignore noise contributions below $1
     const cfDates = Array.from(
@@ -240,26 +240,18 @@ export const getPerformance = createServerFn({ method: "POST" })
 /**
  * Compute monthly portfolio NAV from inception to today.
  * Returns one data point per month-end, computed from transaction history × cached prices.
+ * POST (not GET) because the transaction list can be too large for a query-string payload.
  */
-export const getNavHistory = createServerFn({ method: "GET" })
-  .inputValidator((d: { account?: string | null; maxDate?: string }) =>
-    z.object({ account: z.string().nullable().optional(), maxDate: z.string().optional() }).parse(d ?? {}),
+export const getNavHistory = createServerFn({ method: "POST" })
+  .inputValidator((d: { transactions: Transaction[]; maxDate?: string }) =>
+    z.object({ transactions: z.array(txnSchema), maxDate: z.string().optional() }).parse(d ?? {}),
   )
   .handler(async ({ data }) => {
   const { getDb } = await import("@/lib/db.server");
   const db = getDb();
 
-  const rawTxns = (data?.account
-    ? db.prepare("SELECT * FROM transactions WHERE account = ? ORDER BY trade_date").all(data.account)
-    : db.prepare("SELECT * FROM transactions ORDER BY trade_date").all()) as any[];
-  if (rawTxns.length === 0) return [] as { date: string; value: number }[];
-
-  const rawMappings = db.prepare("SELECT * FROM symbol_mappings").all() as any[];
-  const resolve = buildResolver(rawMappings as any);
-  const txns = rawTxns.map((t: any) => ({
-    ...t,
-    symbol: t.symbol ? (resolve(t.symbol).ticker ?? t.symbol) : null,
-  }));
+  const txns = sortedAsc(data.transactions);
+  if (txns.length === 0) return [] as { date: string; value: number }[];
 
   const inceptionDate: string = txns[0].trade_date;
 

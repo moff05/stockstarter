@@ -1,9 +1,9 @@
 ﻿import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
-import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, Gauge, Menu, X, LogOut } from "lucide-react";
+import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, Gauge, Menu, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatPanel } from "@/components/ChatPanel";
 import { AccountFilterProvider, useAccountFilter } from "@/lib/account-filter";
-import { listAccounts } from "@/lib/transactions.functions";
+import { listAccounts, deleteAllTransactions } from "@/lib/transactions.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 
@@ -249,7 +249,7 @@ function AppLayout() {
           {/* Footer — divided from the scrolling nav above. */}
           <div className="border-t border-sidebar-border pt-2 shrink-0">
             <AccountSelector />
-            <SignOutLink />
+            <ClearDataLink />
           </div>
         </aside>
 
@@ -263,15 +263,32 @@ function AppLayout() {
   );
 }
 
-function SignOutLink() {
+// Everything lives in this browser's localStorage now — there's no server
+// session to sign out of, but there IS local data worth an explicit "start
+// over" escape hatch (e.g. before handing the laptop to someone else).
+function ClearDataLink() {
+  const qc = useQueryClient();
+
+  function handleClick() {
+    const ok = window.confirm(
+      "Clear all data on this device? This deletes every account, transaction, and symbol mapping stored in this browser. It cannot be undone — your original broker export is untouched, so you can always re-upload it.",
+    );
+    if (!ok) return;
+    deleteAllTransactions();
+    localStorage.removeItem("ss_symbol_mappings");
+    localStorage.removeItem("selectedAccount");
+    qc.clear();
+    window.location.href = "/upload";
+  }
+
   return (
     <div className="px-2 pt-2 mt-1 border-t border-sidebar-border">
-      <a
-        href="/__logout"
-        className="flex items-center gap-2 px-3 py-2 text-sm rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+      <button
+        onClick={handleClick}
+        className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
       >
-        <LogOut className="h-4 w-4" /> Sign out
-      </a>
+        <Trash2 className="h-4 w-4" /> Clear all data
+      </button>
     </div>
   );
 }

@@ -1,6 +1,10 @@
-import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { randomUUID } from "node:crypto";
+
+// NOTE: despite the filename, these are plain client-side functions, not
+// server RPCs — transaction data lives in the browser's localStorage, not a
+// server database. The name stayed as-is so the many files that only import
+// the TxnInput type didn't need touching when the server-side password gate
+// and SQLite store were removed in favor of local-only storage.
 
 export const ACTIONS = [
   "BUY",
@@ -28,85 +32,66 @@ const txnSchema = z.object({
 });
 
 export type TxnInput = z.infer<typeof txnSchema>;
+type StoredTxn = TxnInput & { id: string; created_at: string };
 
-export const listTransactions = createServerFn({ method: "GET" })
-  .inputValidator((d: { account?: string | null }) =>
-    z.object({ account: z.string().nullable().optional() }).parse(d ?? {}),
-  )
-  .handler(async ({ data }) => {
-    const { getDb } = await import("@/lib/db.server");
-    const db = getDb();
-    if (data?.account) {
-      return db.prepare("SELECT * FROM transactions WHERE account = ? ORDER BY trade_date DESC").all(data.account);
-    }
-    return db.prepare("SELECT * FROM transactions ORDER BY trade_date DESC").all();
-  });
+const STORAGE_KEY = "ss_transactions";
 
-export const listAccounts = createServerFn({ method: "GET" }).handler(async () => {
-  const { getDb } = await import("@/lib/db.server");
-  const rows = getDb()
-    .prepare("SELECT DISTINCT account FROM transactions WHERE account IS NOT NULL ORDER BY account")
-    .all() as { account: string }[];
-  return rows.map((r) => r.account);
-});
+function newId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
-export const addTransaction = createServerFn({ method: "POST" })
-  .inputValidator((d: TxnInput) => txnSchema.parse(d))
-  .handler(async ({ data }) => {
-    const { getDb } = await import("@/lib/db.server");
-    const db = getDb();
-    db.prepare(`
-      INSERT INTO transactions (id, trade_date, symbol, description, action, quantity, price, amount, fees, account, notes, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      randomUUID(), data.trade_date, data.symbol ?? null, data.description ?? null,
-      data.action, data.quantity ?? 0, data.price ?? 0, data.amount,
-      data.fees ?? 0, data.account ?? null, data.notes ?? null, data.source ?? null,
-    );
-    return { ok: true };
-  });
+function readAll(): StoredTxn[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as StoredTxn[]) : [];
+  } catch {
+    return [];
+  }
+}
 
-export const bulkInsertTransactions = createServerFn({ method: "POST" })
-  .inputValidator((d: { rows: TxnInput[] }) =>
-    z.object({ rows: z.array(txnSchema).max(5000) }).parse(d),
-  )
-  .handler(async ({ data }) => {
-    const { getDb } = await import("@/lib/db.server");
-    const db = getDb();
-    const stmt = db.prepare(`
-      INSERT INTO transactions (id, trade_date, symbol, description, action, quantity, price, amount, fees, account, notes, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    db.exec("BEGIN");
-    try {
-      for (const r of data.rows) {
-        stmt.run(
-          randomUUID(), r.trade_date, r.symbol ?? null, r.description ?? null,
-          r.action, r.quantity ?? 0, r.price ?? 0, r.amount,
-          r.fees ?? 0, r.account ?? null, r.notes ?? null, r.source ?? null,
-        );
-      }
-      db.exec("COMMIT");
-    } catch (e) {
-      try { db.exec("ROLLBACK"); } catch { /* ignore */ }
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[bulkInsert] DB error:", e);
-      throw new Error(`Database error: ${msg}`);
-    }
-    return { inserted: data.rows.length };
-  });
+function writeAll(rows: StoredTxn[]): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+}
 
-export const deleteTransaction = createServerFn({ method: "POST" })
-  .inputValidator((d: { id: string }) => z.object({ id: z.string().min(1) }).parse(d))
-  .handler(async ({ data }) => {
-    const { getDb } = await import("@/lib/db.server");
-    getDb().prepare("DELETE FROM transactions WHERE id = ?").run(data.id);
-    return { ok: true };
-  });
+export async function listTransactions(opts?: { data?: { account?: string | null } }): Promise<StoredTxn[]> {
+  const account = opts?.data?.account;
+  const rows = readAll();
+  const filtered = account ? rows.filter((r) => r.account === account) : rows;
+  return filtered.slice().sort((a, b) => b.trade_date.localeCompare(a.trade_date));
+}
 
-export const deleteAllTransactions = createServerFn({ method: "POST" })
-  .handler(async () => {
-    const { getDb } = await import("@/lib/db.server");
-    getDb().exec("DELETE FROM transactions");
-    return { ok: true };
-  });
+export async function listAccounts(): Promise<string[]> {
+  const set = new Set<string>();
+  for (const r of readAll()) if (r.account) set.add(r.account);
+  return Array.from(set).sort();
+}
+
+export async function addTransaction(opts: { data: TxnInput }): Promise<{ ok: true }> {
+  const data = txnSchema.parse(opts.data);
+  const rows = readAll();
+  rows.push({ ...data, id: newId(), created_at: new Date().toISOString() });
+  writeAll(rows);
+  return { ok: true };
+}
+
+export async function bulkInsertTransactions(opts: { data: { rows: TxnInput[] } }): Promise<{ inserted: number }> {
+  const parsed = z.array(txnSchema).max(5000).parse(opts.data.rows);
+  const rows = readAll();
+  const now = new Date().toISOString();
+  for (const r of parsed) rows.push({ ...r, id: newId(), created_at: now });
+  writeAll(rows);
+  return { inserted: parsed.length };
+}
+
+export async function deleteTransaction(opts: { data: { id: string } }): Promise<{ ok: true }> {
+  writeAll(readAll().filter((r) => r.id !== opts.data.id));
+  return { ok: true };
+}
+
+export async function deleteAllTransactions(): Promise<{ ok: true }> {
+  writeAll([]);
+  return { ok: true };
+}

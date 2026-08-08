@@ -1,6 +1,8 @@
-import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { randomUUID } from "node:crypto";
+
+// NOTE: same as transactions.functions.ts — these are plain client-side
+// functions backed by localStorage, not server RPCs. Filename kept so the
+// files that only need the Mapping type didn't need touching.
 
 export type Mapping = {
   id: string;
@@ -10,13 +12,31 @@ export type Mapping = {
   asset_class: string | null;
 };
 
-export const listMappings = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { getDb } = await import("@/lib/db.server");
-    return getDb()
-      .prepare("SELECT id, cusip, ticker, name, asset_class FROM symbol_mappings ORDER BY cusip")
-      .all() as Mapping[];
-  });
+const STORAGE_KEY = "ss_symbol_mappings";
+
+function newId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function readAll(): Mapping[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Mapping[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeAll(rows: Mapping[]): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+}
+
+export async function listMappings(): Promise<Mapping[]> {
+  return readAll().slice().sort((a, b) => a.cusip.localeCompare(b.cusip));
+}
 
 const upsertSchema = z.object({
   cusip: z.string().min(1),
@@ -25,65 +45,43 @@ const upsertSchema = z.object({
   asset_class: z.string().nullable().optional(),
 });
 
-export const upsertMapping = createServerFn({ method: "POST" })
-  .inputValidator((d: z.infer<typeof upsertSchema>) => upsertSchema.parse(d))
-  .handler(async ({ data }) => {
-    const { getDb } = await import("@/lib/db.server");
-    const db = getDb();
-    const cusip = data.cusip.toUpperCase();
-    const ticker = data.ticker ? data.ticker.toUpperCase() : null;
-    db.prepare(`
-      INSERT INTO symbol_mappings (id, cusip, ticker, name, asset_class)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(cusip) DO UPDATE SET
-        ticker = excluded.ticker,
-        name = excluded.name,
-        asset_class = excluded.asset_class,
-        updated_at = datetime('now')
-    `).run(randomUUID(), cusip, ticker, data.name ?? null, data.asset_class ?? null);
-    return { ok: true };
-  });
+function upsertOne(rows: Mapping[], data: z.infer<typeof upsertSchema>): Mapping[] {
+  const cusip = data.cusip.toUpperCase();
+  const ticker = data.ticker ? data.ticker.toUpperCase() : null;
+  const idx = rows.findIndex((r) => r.cusip === cusip);
+  const next: Mapping = {
+    id: idx >= 0 ? rows[idx].id : newId(),
+    cusip,
+    ticker,
+    name: data.name ?? null,
+    asset_class: data.asset_class ?? null,
+  };
+  if (idx >= 0) {
+    const copy = rows.slice();
+    copy[idx] = next;
+    return copy;
+  }
+  return [...rows, next];
+}
 
-export const bulkUpsertMappings = createServerFn({ method: "POST" })
-  .inputValidator((d: { rows: z.infer<typeof upsertSchema>[] }) =>
-    z.object({ rows: z.array(upsertSchema).max(2000) }).parse(d),
-  )
-  .handler(async ({ data }) => {
-    if (!data.rows.length) return { inserted: 0 };
-    const { getDb } = await import("@/lib/db.server");
-    const db = getDb();
-    const stmt = db.prepare(`
-      INSERT INTO symbol_mappings (id, cusip, ticker, name, asset_class)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(cusip) DO UPDATE SET
-        ticker = excluded.ticker,
-        name = excluded.name,
-        asset_class = excluded.asset_class,
-        updated_at = datetime('now')
-    `);
-    db.exec("BEGIN");
-    try {
-      for (const r of data.rows) {
-        stmt.run(
-          randomUUID(),
-          r.cusip.toUpperCase(),
-          r.ticker ? r.ticker.toUpperCase() : null,
-          r.name ?? null,
-          r.asset_class ?? null,
-        );
-      }
-      db.exec("COMMIT");
-    } catch (e) {
-      db.exec("ROLLBACK");
-      throw e;
-    }
-    return { inserted: data.rows.length };
-  });
+export async function upsertMapping(opts: { data: z.infer<typeof upsertSchema> }): Promise<{ ok: true }> {
+  const data = upsertSchema.parse(opts.data);
+  writeAll(upsertOne(readAll(), data));
+  return { ok: true };
+}
 
-export const deleteMapping = createServerFn({ method: "POST" })
-  .inputValidator((d: { id: string }) => z.object({ id: z.string().min(1) }).parse(d))
-  .handler(async ({ data }) => {
-    const { getDb } = await import("@/lib/db.server");
-    getDb().prepare("DELETE FROM symbol_mappings WHERE id = ?").run(data.id);
-    return { ok: true };
-  });
+export async function bulkUpsertMappings(
+  opts: { data: { rows: z.infer<typeof upsertSchema>[] } },
+): Promise<{ inserted: number }> {
+  const parsed = z.array(upsertSchema).max(2000).parse(opts.data.rows);
+  if (!parsed.length) return { inserted: 0 };
+  let rows = readAll();
+  for (const r of parsed) rows = upsertOne(rows, r);
+  writeAll(rows);
+  return { inserted: parsed.length };
+}
+
+export async function deleteMapping(opts: { data: { id: string } }): Promise<{ ok: true }> {
+  writeAll(readAll().filter((r) => r.id !== opts.data.id));
+  return { ok: true };
+}

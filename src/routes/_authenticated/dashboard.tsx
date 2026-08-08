@@ -258,8 +258,8 @@ function Dashboard() {
 
   const clientToday = localDateStr();
   const navQ = useQuery({
-    queryKey: ["nav-history", account ?? "all", clientToday],
-    queryFn: () => getNavHistory({ data: { account, maxDate: localDateStr() } }),
+    queryKey: ["nav-history", account ?? "all", clientToday, txns.length],
+    queryFn: () => getNavHistory({ data: { transactions: txns as any, maxDate: localDateStr() } }),
     staleTime: 10 * 60_000,
   });
   const navSeries = navQ.data ?? [];

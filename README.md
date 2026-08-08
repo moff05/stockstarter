@@ -1,10 +1,10 @@
 # StockStarter
 
-A beginner-friendly, self-hosted stock portfolio tracker. Upload a broker export and get real holdings, performance, income, and tax-loss insight — without needing to understand a brokerage statement to read it.
+A beginner-friendly stock portfolio tracker that never leaves your browser. Upload a broker export and get real holdings, performance, income, and tax-loss insight — without needing to understand a brokerage statement to read it, and without handing your holdings to a server anywhere.
 
-Reads broker export files (Excel or CSV), resolves holdings, fetches live prices from Yahoo Finance, and delivers analytics across performance, income, risk, and taxes. Runs as a **hosted web app** behind a shared-password gate. Accessible on web and mobile.
+Reads broker export files (Excel or CSV), resolves holdings, fetches live prices from Yahoo Finance, and delivers analytics across performance, income, risk, and taxes. No account, no login, nothing to install — your transactions are parsed in the browser and stored in `localStorage` on your own device. Accessible on web and mobile.
 
-**[Live demo →](https://stockstarter-production.up.railway.app)** — password: `joVgb2h5EiIXbMOMIYF3` (gated demo account, synthetic data only)
+**[Live demo →](https://stockstarter-production.up.railway.app)** — no signup, just upload a statement (a synthetic one is fine — nothing you upload leaves your browser)
 
 ![StockStarter dashboard: portfolio value, NAV chart over time, and a per-position unrealized P/L treemap](docs/screenshots/dashboard.jpg)
 
@@ -76,11 +76,11 @@ Brokerage dashboards show you a number and stop there — no explanation of what
 
 ## Access
 
-Open the [live demo](https://stockstarter-production.up.railway.app) in any browser (desktop or mobile) and sign in with the shared access password (`joVgb2h5EiIXbMOMIYF3`). There is nothing to install. The UI is responsive — on phones the nav collapses into a drawer, and "Add to Home Screen" makes it behave like an app.
+Open the [live demo](https://stockstarter-production.up.railway.app) in any browser (desktop or mobile) and upload a statement — there's no account to create and nothing to install. The UI is responsive — on phones the nav collapses into a drawer, and "Add to Home Screen" makes it behave like an app.
 
-The demo account is seeded with synthetic transaction history, not a real portfolio.
+Every account you upload lives only in that browser's `localStorage`, on that device. There's no server-side database of anyone's holdings — clearing your browser data or switching devices means starting over with a re-upload, which is the tradeoff for nothing ever being stored anywhere else.
 
-New account data: upload an `.xlsx`/`.csv` file directly from `/upload`. Overwrite a file with the same name to update that account. Failed logins are rate-limited (5 attempts per IP → 15-minute lockout).
+New account data: upload an `.xlsx`/`.csv` file directly from `/upload`. Overwrite a file with the same name to update that account. "Clear all data" in the sidebar wipes everything on that device in one step.
 
 ---
 
@@ -91,7 +91,7 @@ New account data: upload an `.xlsx`/`.csv` file directly from `/upload`. Overwri
 | Runtime | Bun v1.3.14 |
 | Framework | TanStack Start v1.167 (Vite-native) + React 19 |
 | Router | TanStack Router (file-based) |
-| Database | SQLite (`bun:sqlite`) — local cache, rebuilt from your uploads |
+| Storage | Browser `localStorage` for your transactions; server-side SQLite holds only a shared price cache |
 | Styling | Tailwind v4 + shadcn/ui |
 | Charts | Recharts |
 | Excel parsing | SheetJS (client-side) |
@@ -113,7 +113,7 @@ bun install
 bun dev
 ```
 
-Opens at `http://localhost:5173`. The SQLite database is created automatically at `data/portfolio.db` on first run.
+Opens at `http://localhost:5173`. A small SQLite file is created at `data/portfolio.db` on first run — it's only a shared price cache; your uploaded transactions live in the browser, not this file.
 
 **AI chat (dev mode):** Create a `.env` file in the project root:
 ```
@@ -125,26 +125,25 @@ Bun loads this automatically. Get a key at [console.anthropic.com](https://conso
 
 ## Deployment
 
-The production build is a standalone Bun server (`server/server.mjs`) that serves the built client and SSR handler behind a shared-password gate. Build with `bun run build` (outputs `dist/client` + `dist/server`), then `bun run start` to serve it. A `Dockerfile` is included for any container host; `railway.json` is there if you deploy to Railway specifically.
+The production build is a standalone Bun server (`server/server.mjs`) that serves the built client and the SSR/server-function handler — no login gate, since there's no user data on the server to protect. Build with `bun run build` (outputs `dist/client` + `dist/server`), then `bun run start` to serve it. A `Dockerfile` is included for any container host; `railway.json` is there if you deploy to Railway specifically.
 
 **Environment variables:**
 
 | Variable | Purpose |
 |---|---|
-| `APP_PASSWORD` | Shared access-gate password (required; server refuses to start without it) |
-| `ANTHROPIC_API_KEY` | AI chat |
-| `DB_PATH` | SQLite path — point this at a persistent volume in production |
+| `ANTHROPIC_API_KEY` | AI chat (optional — the app runs fine without it, chat just won't respond) |
+| `DB_PATH` | Path for the shared price cache — point this at a persistent volume if you want it to survive redeploys, though it's just a cache and rebuilds itself either way |
 
-The gate rate-limits failed logins (5 attempts per IP → 15-min lockout). Mount a persistent volume for `DB_PATH` in production so the cache survives redeploys.
+Anyone who can reach the deployed URL can use it — that's intentional, since every visitor's data stays local to their own browser and there's nothing shared to expose.
 
 ---
 
 ## Data & privacy
 
-- Your broker export files are the source of truth. The server keeps a derived SQLite cache (`DB_PATH`), rebuilt from your uploads.
-- The whole app sits behind a shared-password gate over HTTPS; only `/healthz` is public.
-- Prices are fetched from Yahoo Finance on demand and cached in the database.
-- No third-party telemetry. The `.env` file (dev API key) is gitignored.
+- Your broker export file is the source of truth. Transactions are parsed in the browser and stored in that browser's `localStorage` — they're never uploaded to a server or written to any database.
+- The only server-side state is a shared cache of daily closing prices (public market data, not yours) and, if you enable it, the AI chat, which receives your holdings for that one request and doesn't persist them.
+- Clearing your browser data (or using a different browser/device) means your data is gone from that browser — re-upload the original export to get it back.
+- No accounts, no telemetry, no third-party analytics.
 
 ---
 
@@ -171,16 +170,17 @@ src/
 │   ├── tax-lots.ts         # FIFO / HIFO lot tracking
 │   ├── excel-import.ts     # Excel parser
 │   ├── csv-import.ts       # Generic broker CSV parser
-│   ├── prices.functions.ts # Yahoo Finance quotes + history
-│   ├── performance.functions.ts # TWR server fn + NAV history
-│   ├── db.server.ts        # SQLite schema + WAL setup
-│   ├── chat.functions.ts   # AI chat context (account-aware) + Anthropic call
+│   ├── prices.functions.ts # Yahoo Finance quotes + history (server fn)
+│   ├── performance.functions.ts # TWR + NAV history (server fn, client sends its transactions)
+│   ├── db.server.ts        # SQLite — shared price cache only, no user data
+│   ├── transactions.functions.ts   # transaction CRUD — despite the name, runs client-side against localStorage
+│   ├── symbol-mappings.functions.ts # CUSIP→ticker CRUD — same, client-side/localStorage
+│   ├── chat.functions.ts   # AI chat (server fn) — client sends its resolved transactions as context
 │   ├── account-filter.tsx  # Selected-account context (sidebar switcher)
 │   └── cusip-seed.ts       # Built-in CUSIP → ticker seed
 │
 server/
-└── server.mjs              # Standalone Bun server + shared-password gate, login
-                            # rate-limiting, /healthz
+└── server.mjs              # Standalone Bun server — static assets + SSR/server-fn handoff, /healthz
 ```
 
 ---

@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { buildSnapshot, formatMoney } from "./portfolio";
-import { buildResolver } from "./symbol-resolver";
 import { yahooChart } from "./prices.functions";
 import type { Transaction } from "./portfolio";
 
@@ -32,15 +31,12 @@ async function fetchLivePrices(symbols: string[]): Promise<Record<string, number
 
 function buildContext(
   txns: Transaction[],
-  mappings: any[],
   prices: Record<string, number>,
 ): string {
   const today = new Date().toISOString().slice(0, 10);
-  const resolve = buildResolver(mappings);
-  const resolvedTxns = txns.map((t: any) => ({
-    ...t,
-    symbol: t.symbol ? (resolve(t.symbol).ticker ?? t.symbol) : null,
-  }));
+  // Transactions arrive already symbol-resolved from the client — no mapping
+  // lookup needed here (the client owns symbol_mappings, not the server).
+  const resolvedTxns = txns;
 
   const snapshot = buildSnapshot(resolvedTxns, today, prices);
   const pct = (n: number, base: number) =>
@@ -129,13 +125,34 @@ function buildContext(
   return lines.join("\n");
 }
 
+const txnSchema = z.object({
+  id: z.string(),
+  trade_date: z.string(),
+  symbol: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  action: z.string(),
+  quantity: z.number().nullable().optional(),
+  price: z.number().nullable().optional(),
+  amount: z.number(),
+  fees: z.number().nullable().optional(),
+  account: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  source: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+}).passthrough();
+
 export const askPortfolio = createServerFn({ method: "POST" })
   .inputValidator(
-    (d: { messages: { role: "user" | "assistant"; content: string }[]; account?: string | null }) =>
+    (d: {
+      messages: { role: "user" | "assistant"; content: string }[];
+      account?: string | null;
+      transactions: Transaction[];
+    }) =>
       z
         .object({
           messages: z.array(messageSchema).min(1).max(40),
           account: z.string().nullable().optional(),
+          transactions: z.array(txnSchema),
         })
         .parse(d),
   )
@@ -154,19 +171,17 @@ export const askPortfolio = createServerFn({ method: "POST" })
     const { getDb } = await import("@/lib/db.server");
     const db = getDb();
 
-    const txns = db
-      .prepare("SELECT * FROM transactions ORDER BY trade_date")
-      .all() as Transaction[];
-    const mappings = db.prepare("SELECT * FROM symbol_mappings").all() as any[];
+    // Transactions arrive already symbol-resolved from the client (it holds
+    // the mappings, not the server) — sort ascending to match prior SQL order.
+    const txns = (data.transactions as unknown as Transaction[])
+      .slice()
+      .sort((a, b) => a.trade_date.localeCompare(b.trade_date));
 
-    // Resolve symbols to get the list we need prices for
-    const resolve = buildResolver(mappings);
     const today = new Date().toISOString().slice(0, 10);
     const symbolSet = new Set<string>();
     for (const t of txns) {
       if (t.symbol && (t.action === "BUY" || t.action === "SELL")) {
-        const ticker = resolve(t.symbol).ticker ?? t.symbol;
-        if (ticker) symbolSet.add(ticker.toUpperCase());
+        symbolSet.add(t.symbol.toUpperCase());
       }
     }
 
@@ -195,7 +210,7 @@ export const askPortfolio = createServerFn({ method: "POST" })
       }
     }
 
-    const context = buildContext(txns, mappings, prices);
+    const context = buildContext(txns, prices);
 
     const viewNote =
       data.account && data.account.trim()

@@ -1,5 +1,5 @@
 ﻿import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ResponsiveContainer,
@@ -11,8 +11,9 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import { getPerformance, getInceptionDate } from "@/lib/performance.functions";
+import { getPerformance } from "@/lib/performance.functions";
 import { useAccountFilter } from "@/lib/account-filter";
+import { usePortfolio } from "@/hooks/use-portfolio";
 import { isoAddDays, formatMoney } from "@/lib/portfolio";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -183,19 +184,20 @@ function PerformancePage() {
   const [period, setPeriod] = useState<Period>("YTD");
   const [benchSym, setBenchSym] = useState<BenchSym>("SPY");
   const { account } = useAccountFilter();
+  const { txns } = usePortfolio();
 
-  const inceptionQ = useQuery({
-    queryKey: ["inception-date", account ?? "all"],
-    queryFn: () => getInceptionDate({ data: { account } }),
-    staleTime: Infinity,
-  });
-  const inceptionDate = inceptionQ.data ?? null;
+  // Inception is a pure client-side computation now — transactions already
+  // live in the browser, no server round-trip needed.
+  const inceptionDate = useMemo(
+    () => (txns.length ? txns.reduce((min, t) => (t.trade_date < min ? t.trade_date : min), txns[0].trade_date) : null),
+    [txns],
+  );
 
   const { start: startDate, end: endDate } = getPeriodDates(period, inceptionDate);
 
   const perfQ = useQuery({
-    queryKey: ["performance", startDate, endDate, account ?? "all"],
-    queryFn: () => getPerformance({ data: { startDate, endDate, account } }),
+    queryKey: ["performance", startDate, endDate, account ?? "all", txns.length],
+    queryFn: () => getPerformance({ data: { startDate, endDate, transactions: txns as any } }),
     staleTime: 2 * 60_000,
     enabled: !!startDate && startDate < endDate && (period !== "Inception" || !!inceptionDate),
   });

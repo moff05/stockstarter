@@ -9,7 +9,7 @@ import { SortHead, useSortable, sortRows } from "@/components/SortHead";
 import { KpiLabel } from "@/components/KpiLabel";
 import { formatMoney, isoAddDays } from "@/lib/portfolio";
 import { getSector } from "@/lib/sector";
-import { getNavHistory, getPerformance, getInceptionDate } from "@/lib/performance.functions";
+import { getNavHistory, getPerformance } from "@/lib/performance.functions";
 import { useAccountFilter } from "@/lib/account-filter";
 import { SPY_SECTOR_WEIGHTS, QQQ_SECTOR_WEIGHTS } from "@/lib/index-sector-weights";
 import {
@@ -618,8 +618,8 @@ function AdvancedPage() {
 
   const clientToday = localDateStr();
   const navQ = useQuery({
-    queryKey: ["nav-history", account ?? "all", clientToday],
-    queryFn: () => getNavHistory({ data: { account, maxDate: localDateStr() } }),
+    queryKey: ["nav-history", account ?? "all", clientToday, txns.length],
+    queryFn: () => getNavHistory({ data: { transactions: txns as any, maxDate: localDateStr() } }),
     staleTime: 10 * 60_000,
   });
   const navSeries = navQ.data ?? [];
@@ -654,16 +654,15 @@ function AdvancedPage() {
   }, [sectorChartData]);
 
   // Performance data — own period/benchmark controls, independent of the main Performance page.
-  const inceptionQ = useQuery({
-    queryKey: ["inception-date", account ?? "all"],
-    queryFn: () => getInceptionDate({ data: { account } }),
-    staleTime: Infinity,
-  });
-  const inceptionDate = inceptionQ.data ?? null;
+  // Inception is a pure client-side computation — transactions already live in the browser.
+  const inceptionDate = useMemo(
+    () => (txns.length ? txns.reduce((min, t) => (t.trade_date < min ? t.trade_date : min), txns[0].trade_date) : null),
+    [txns],
+  );
   const { start: perfStart, end: perfEnd } = getPeriodDates(perfPeriod, inceptionDate);
   const perfQ = useQuery({
-    queryKey: ["performance", perfStart, perfEnd, account ?? "all"],
-    queryFn: () => getPerformance({ data: { startDate: perfStart, endDate: perfEnd, account } }),
+    queryKey: ["performance", perfStart, perfEnd, account ?? "all", txns.length],
+    queryFn: () => getPerformance({ data: { startDate: perfStart, endDate: perfEnd, transactions: txns as any } }),
     staleTime: 2 * 60_000,
     enabled: !!perfStart && perfStart < perfEnd && (perfPeriod !== "Inception" || !!inceptionDate),
   });
