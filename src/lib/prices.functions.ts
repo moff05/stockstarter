@@ -119,7 +119,48 @@ function toISO(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+// Per-isolate cache for Yahoo responses, keyed by request shape. Two jobs:
+// (1) de-dupe concurrent callers asking for the same data (e.g. the NAV chart
+// and the holdings table both fetching AAPL in the same page load) by sharing
+// one in-flight promise, and (2) avoid re-hitting Yahoo for data that hasn't
+// gone stale yet. Without this, a single Dashboard load can fire a dozen+
+// requests for a handful of symbols and trip Yahoo's rate limit almost
+// immediately — which is exactly what was happening before this cache existed.
+// Failures are never cached (removed from the map so the next call retries).
+const _cache = new Map<string, { promise: Promise<any>; expiresAt: number | null }>();
+
+function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const hit = _cache.get(key);
+  if (hit && (hit.expiresAt === null || hit.expiresAt > Date.now())) {
+    return hit.promise as Promise<T>;
+  }
+  const promise = fn().catch((e) => {
+    _cache.delete(key);
+    throw e;
+  });
+  _cache.set(key, { promise, expiresAt: null }); // null while in-flight, set on resolve below
+  // Side-effect chain only — must swallow rejections itself (with .catch, not just
+  // omitting an onRejected handler) or it becomes an *unhandled* rejection once
+  // `promise` above rejects, since nothing else observes this derived promise.
+  // That's not cosmetic: an unhandled rejection crashes the whole Bun process.
+  promise
+    .then(() => {
+      const entry = _cache.get(key);
+      if (entry && entry.promise === promise) entry.expiresAt = Date.now() + ttlMs;
+    })
+    .catch(() => {});
+  return promise;
+}
+
+const CHART_CACHE_TTL_MS = 5 * 60_000; // historical daily bars barely change minute to minute
+
 export async function yahooChart(symbol: string, period1: number, period2: number) {
+  return cached(`chart:${symbol}:${period1}:${period2}`, CHART_CACHE_TTL_MS, () =>
+    fetchYahooChart(symbol, period1, period2),
+  );
+}
+
+async function fetchYahooChart(symbol: string, period1: number, period2: number) {
   await ensureYahooSession();
   const base = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     symbol,
@@ -150,110 +191,132 @@ export async function yahooChart(symbol: string, period1: number, period2: numbe
 /**
  * Get current quote for one or more symbols.
  */
+const QUOTE_CACHE_TTL_MS = 60_000; // matches the client's `staleTime` for the prices query
+
+async function fetchQuotesFromYahoo(
+  symbols: string[],
+): Promise<Record<string, { price: number; previousClose: number; currency: string }>> {
+  await ensureYahooSession();
+  const out: Record<string, { price: number; previousClose: number; currency: string }> = {};
+
+  const yhToOrig = new Map<string, string>();
+  for (const sym of symbols) yhToOrig.set(sym.replace(".", "-").toUpperCase(), sym);
+  const yhSyms = [...yhToOrig.keys()];
+
+  const base = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yhSyms.join(",")}&fields=regularMarketPrice,regularMarketPreviousClose,currency`;
+  const url = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
+
+  let res = await fetch(url, { headers: yahooHeaders() });
+  if (res.status === 401 || res.status === 403) {
+    clearYahooSession();
+    await ensureYahooSession();
+    const retry = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
+    res = await fetch(retry, { headers: yahooHeaders() });
+  }
+  if (!res.ok) throw new Error(`Yahoo v7/quote ${res.status}`);
+
+  const json = (await res.json()) as any;
+  const results: any[] = json?.quoteResponse?.result ?? [];
+  for (const r of results) {
+    const origSym = yhToOrig.get(r.symbol?.toUpperCase()) ?? r.symbol;
+    out[origSym.toUpperCase()] = {
+      price: Number(r.regularMarketPrice ?? 0),
+      previousClose: Number(r.regularMarketPreviousClose ?? 0),
+      currency: r.currency ?? "USD",
+    };
+  }
+  return out;
+}
+
+/**
+ * Get current quote for one or more symbols. Symbols Yahoo couldn't price
+ * (rate-limited, unknown ticker, etc.) are simply absent from the result —
+ * callers must not assume every requested symbol comes back, and must not
+ * treat "missing" as "price is $0" (buildSnapshot falls back to avg cost).
+ */
 export const getQuotes = createServerFn({ method: "POST" })
   .inputValidator((d: { symbols: string[] }) =>
     z.object({ symbols: z.array(z.string()).max(100) }).parse(d),
   )
   .handler(async ({ data }) => {
-    const out: Record<string, { price: number; previousClose: number; currency: string }> = {};
-    if (data.symbols.length === 0) return out;
-
-    await ensureYahooSession();
-
-    const yhToOrig = new Map<string, string>();
-    for (const sym of data.symbols) yhToOrig.set(sym.replace(".", "-").toUpperCase(), sym);
-    const yhSyms = [...yhToOrig.keys()];
-
-    const base = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yhSyms.join(",")}&fields=regularMarketPrice,regularMarketPreviousClose,currency`;
-    const url = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
-
+    if (data.symbols.length === 0) return {};
+    const key = `quotes:${[...new Set(data.symbols.map((s) => s.toUpperCase()))].sort().join(",")}`;
     try {
-      let res = await fetch(url, { headers: yahooHeaders() });
-      if (res.status === 401 || res.status === 403) {
-        clearYahooSession();
-        await ensureYahooSession();
-        const retry = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
-        res = await fetch(retry, { headers: yahooHeaders() });
-      }
-      if (!res.ok) throw new Error(`Yahoo v7/quote ${res.status}`);
-
-      const json = (await res.json()) as any;
-      const results: any[] = json?.quoteResponse?.result ?? [];
-      for (const r of results) {
-        const origSym = yhToOrig.get(r.symbol?.toUpperCase()) ?? r.symbol;
-        out[origSym.toUpperCase()] = {
-          price: Number(r.regularMarketPrice ?? 0),
-          previousClose: Number(r.regularMarketPreviousClose ?? 0),
-          currency: r.currency ?? "USD",
-        };
-      }
+      return await cached(key, QUOTE_CACHE_TTL_MS, () => fetchQuotesFromYahoo(data.symbols));
     } catch (e) {
       console.error("[getQuotes]", (e as Error).message);
+      return {};
     }
-
-    for (const sym of data.symbols) {
-      if (!out[sym.toUpperCase()]) out[sym.toUpperCase()] = { price: 0, previousClose: 0, currency: "USD" };
-    }
-    return out;
   });
 
 /**
  * Get beta and trailing dividend yield for a batch of symbols via Yahoo v7/quote.
  * Returns null for either field when Yahoo doesn't have data (bonds, funds, etc.).
  */
+const METRICS_CACHE_TTL_MS = 5 * 60_000; // matches the client's `staleTime` for quote-metrics
+
+async function fetchQuoteMetricsFromYahoo(
+  symbols: string[],
+): Promise<Record<string, { beta: number | null; dividendYield: number | null }>> {
+  await ensureYahooSession();
+  const out: Record<string, { beta: number | null; dividendYield: number | null }> = {};
+
+  // Yahoo uses BRK-B style; keep a reverse map so we can key output by original symbol
+  const yhToOrig = new Map<string, string>();
+  for (const sym of symbols) yhToOrig.set(sym.replace(".", "-").toUpperCase(), sym);
+  const yhSyms = [...yhToOrig.keys()];
+
+  const base = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yhSyms.join(",")}&fields=beta,trailingAnnualDividendYield,dividendYield`;
+  const url = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
+
+  let res = await fetch(url, { headers: yahooHeaders() });
+  if (res.status === 401 || res.status === 403) {
+    clearYahooSession();
+    await ensureYahooSession();
+    const retry = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
+    res = await fetch(retry, { headers: yahooHeaders() });
+  }
+  if (!res.ok) throw new Error(`Yahoo v7/quote ${res.status}`);
+
+  const json = (await res.json()) as any;
+  const results: any[] = json?.quoteResponse?.result ?? [];
+  for (const r of results) {
+    const origSym = yhToOrig.get(r.symbol?.toUpperCase()) ?? r.symbol;
+    out[origSym] = {
+      beta: r.beta != null ? Number(r.beta) : null,
+      dividendYield: (() => {
+        // trailingAnnualDividendYield is always a decimal (0.07 = 7%).
+        // dividendYield (fallback, used for mutual funds) is sometimes a
+        // percentage (7.04 = 7.04%) — normalize any value > 1 to decimal.
+        const raw =
+          r.trailingAnnualDividendYield != null
+            ? Number(r.trailingAnnualDividendYield)
+            : r.dividendYield != null
+              ? Number(r.dividendYield)
+              : null;
+        if (raw == null) return null;
+        return raw > 1 ? raw / 100 : raw;
+      })(),
+    };
+  }
+  return out;
+}
+
 export const getQuoteMetrics = createServerFn({ method: "POST" })
   .inputValidator((d: { symbols: string[] }) =>
     z.object({ symbols: z.array(z.string()).max(100) }).parse(d),
   )
   .handler(async ({ data }) => {
-    const out: Record<string, { beta: number | null; dividendYield: number | null }> = {};
-    if (data.symbols.length === 0) return out;
-
-    await ensureYahooSession();
-
-    // Yahoo uses BRK-B style; keep a reverse map so we can key output by original symbol
-    const yhToOrig = new Map<string, string>();
-    for (const sym of data.symbols) yhToOrig.set(sym.replace(".", "-").toUpperCase(), sym);
-    const yhSyms = [...yhToOrig.keys()];
-
-    const base = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yhSyms.join(",")}&fields=beta,trailingAnnualDividendYield,dividendYield`;
-    const url = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
-
+    if (data.symbols.length === 0) return {};
+    const key = `metrics:${[...new Set(data.symbols.map((s) => s.toUpperCase()))].sort().join(",")}`;
+    let out: Record<string, { beta: number | null; dividendYield: number | null }> = {};
     try {
-      let res = await fetch(url, { headers: yahooHeaders() });
-      if (res.status === 401 || res.status === 403) {
-        clearYahooSession();
-        await ensureYahooSession();
-        const retry = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
-        res = await fetch(retry, { headers: yahooHeaders() });
-      }
-      if (!res.ok) throw new Error(`Yahoo v7/quote ${res.status}`);
-
-      const json = (await res.json()) as any;
-      const results: any[] = json?.quoteResponse?.result ?? [];
-      for (const r of results) {
-        const origSym = yhToOrig.get(r.symbol?.toUpperCase()) ?? r.symbol;
-        out[origSym] = {
-          beta: r.beta != null ? Number(r.beta) : null,
-          dividendYield: (() => {
-            // trailingAnnualDividendYield is always a decimal (0.07 = 7%).
-            // dividendYield (fallback, used for mutual funds) is sometimes a
-            // percentage (7.04 = 7.04%) — normalize any value > 1 to decimal.
-            const raw =
-              r.trailingAnnualDividendYield != null
-                ? Number(r.trailingAnnualDividendYield)
-                : r.dividendYield != null
-                  ? Number(r.dividendYield)
-                  : null;
-            if (raw == null) return null;
-            return raw > 1 ? raw / 100 : raw;
-          })(),
-        };
-      }
+      out = await cached(key, METRICS_CACHE_TTL_MS, () => fetchQuoteMetricsFromYahoo(data.symbols));
     } catch (e) {
       console.error("[getQuoteMetrics]", (e as Error).message);
     }
-
+    // beta/yield are optional enrichments (null renders as "—"), so unlike price
+    // this fallback is honest rather than misleading — fine to fill in for every symbol.
     for (const sym of data.symbols) {
       if (!(sym in out)) out[sym] = { beta: null, dividendYield: null };
     }

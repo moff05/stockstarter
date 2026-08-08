@@ -1,6 +1,6 @@
 ﻿import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, Fragment } from "react";
-import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight, TriangleAlert } from "lucide-react";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { AsOfDatePicker } from "@/components/AsOfDatePicker";
 import { UnmappedBanner } from "@/components/UnmappedBanner";
@@ -389,7 +389,22 @@ function Holdings() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{h.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 })}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatMoney(h.avgCost)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMoney(h.marketPrice)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <span className="inline-flex items-center gap-1">
+                        {h.priceStale && (
+                          <span
+                            title="Live price unavailable right now, showing avg cost instead. Market value and unrealized P/L below are not real until this refreshes."
+                            className="inline-flex shrink-0"
+                          >
+                            <TriangleAlert
+                              className="w-3 h-3 text-amber-500"
+                              aria-label="Live price unavailable — showing avg cost"
+                            />
+                          </span>
+                        )}
+                        {formatMoney(h.marketPrice)}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right tabular-nums font-medium text-foreground">{formatMoney(h.marketValue)}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatMoney(h.costBasis)}</TableCell>
                     <TableCell className={cn("text-right tabular-nums font-medium", h.unrealizedPL >= 0 ? "text-gain" : "text-loss")}>

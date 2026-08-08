@@ -20,6 +20,9 @@ export type Holding = {
   beta: number | null;
   dividendYield: number | null;     // trailing annual yield as decimal (0.015 = 1.5%)
   annualDividendIncome: number;     // dividendYield × marketValue
+  // true when no live price was available and marketPrice fell back to avg cost
+  // (Yahoo rate-limited/unreachable) — market value and unrealized P/L are not real.
+  priceStale: boolean;
 };
 
 export type PortfolioSnapshot = {
@@ -121,14 +124,21 @@ export function buildSnapshot(
   const holdings: Holding[] = Object.entries(positions)
     .filter(([, p]) => p.qty > 1e-9)
     .map(([symbol, p]) => {
-      const marketPrice = Number(prices[symbol] ?? prices[symbol.replace(".", "-")] ?? 0);
+      const avgCost = p.qty > 0 ? p.cost / p.qty : 0;
+      // A missing key (not a 0) means the quote fetch failed for this symbol —
+      // fall back to avg cost so market value ≈ cost basis (an honest "no
+      // change" instead of a fabricated total loss) and flag it as stale so
+      // the UI can say so instead of presenting it as a live price.
+      const rawPrice = prices[symbol] ?? prices[symbol.replace(".", "-")];
+      const priceStale = rawPrice === undefined;
+      const marketPrice = priceStale ? avgCost : Number(rawPrice);
       const marketValue = marketPrice * p.qty;
       const unrealizedPL = marketValue - p.cost;
       return {
         symbol,
         quantity: p.qty,
         costBasis: p.cost,
-        avgCost: p.qty > 0 ? p.cost / p.qty : 0,
+        avgCost,
         marketPrice,
         marketValue,
         unrealizedPL,
@@ -137,6 +147,7 @@ export function buildSnapshot(
         beta: null,
         dividendYield: null,
         annualDividendIncome: 0,
+        priceStale,
       };
     });
 
