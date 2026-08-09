@@ -1,11 +1,12 @@
 ﻿import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
-import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, Gauge, Menu, X, Trash2 } from "lucide-react";
+import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, Gauge, Menu, X, Trash2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatPanel } from "@/components/ChatPanel";
 import { AccountFilterProvider, useAccountFilter } from "@/lib/account-filter";
-import { listAccounts, deleteAllTransactions } from "@/lib/transactions.functions";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { listAccounts, deleteAllTransactions, deleteAccount, DEMO_ACCOUNT } from "@/lib/transactions.functions";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AppLayout,
@@ -254,6 +255,7 @@ function AppLayout() {
         </aside>
 
         <main className="flex-1 min-w-0 overflow-y-auto">
+          <DemoDataBanner />
           <Outlet />
         </main>
 
@@ -289,6 +291,58 @@ function ClearDataLink() {
       >
         <Trash2 className="h-4 w-4" /> Clear all data
       </button>
+    </div>
+  );
+}
+
+// Shown on every page whenever the sample portfolio is loaded, so it's never
+// mistaken for real holdings no matter which page someone's on. Demo data and
+// real data are mutually exclusive by design — uploading a real statement
+// clears the demo account automatically (see upload.tsx) — so its mere
+// presence in the account list is enough to know it's the only thing loaded.
+function DemoDataBanner() {
+  const qc = useQueryClient();
+  const { setAccount } = useAccountFilter();
+
+  const accountsQ = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => listAccounts(),
+    staleTime: 30_000,
+  });
+  const isDemo = (accountsQ.data ?? []).includes(DEMO_ACCOUNT);
+
+  const removeMutation = useMutation({
+    mutationFn: () => deleteAccount({ data: { account: DEMO_ACCOUNT } }),
+    onSuccess: () => {
+      setAccount(null);
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["nav-history"] });
+      qc.invalidateQueries({ queryKey: ["inception-date"] });
+      toast.success("Demo data removed");
+    },
+    onError: () => toast.error("Couldn't remove demo data. Try again."),
+  });
+
+  if (!isDemo) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-4 sm:px-6 py-2 bg-primary/10 border-b border-primary/20 text-sm">
+      <Sparkles className="w-4 h-4 shrink-0 text-primary" />
+      <span className="font-medium text-foreground">You're viewing sample data</span>
+      <span className="text-muted-foreground">— not a real portfolio.</span>
+      <div className="ml-auto flex items-center gap-3">
+        <Link to="/upload" className="text-primary hover:underline font-medium">
+          Upload your own statement
+        </Link>
+        <button
+          onClick={() => removeMutation.mutate()}
+          disabled={removeMutation.isPending}
+          className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
+        >
+          Remove demo data
+        </button>
+      </div>
     </div>
   );
 }

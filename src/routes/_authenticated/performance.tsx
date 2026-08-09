@@ -122,7 +122,11 @@ function PerformanceChart({ points, benchSym }: { points: ChartPoint[]; benchSym
     <Card className="p-5">
       <div className="mb-4">
         <h2 className="font-semibold text-foreground">Cumulative Return</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Portfolio vs. {benchLabel}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {hasBenchmark ? `Portfolio vs. ${benchLabel}` : (
+            <>Portfolio only — {benchLabel} data unavailable right now</>
+          )}
+        </p>
       </div>
       <div className="text-muted-foreground">
         <ResponsiveContainer width="100%" height={300}>

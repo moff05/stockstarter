@@ -36,6 +36,11 @@ type StoredTxn = TxnInput & { id: string; created_at: string };
 
 const STORAGE_KEY = "ss_transactions";
 
+// Reserved account name for the one-click sample portfolio (src/lib/demo-data.ts).
+// Chosen to be unmistakably not a real filename-derived account name, so it's
+// self-explanatory even before the UI banner renders.
+export const DEMO_ACCOUNT = "Demo Portfolio (Sample Data)";
+
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -93,5 +98,10 @@ export async function deleteTransaction(opts: { data: { id: string } }): Promise
 
 export async function deleteAllTransactions(): Promise<{ ok: true }> {
   writeAll([]);
+  return { ok: true };
+}
+
+export async function deleteAccount(opts: { data: { account: string } }): Promise<{ ok: true }> {
+  writeAll(readAll().filter((r) => r.account !== opts.data.account));
   return { ok: true };
 }

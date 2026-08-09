@@ -91,6 +91,15 @@ export type PerformanceResult = {
   qqqAnnualized: number | null;
   beta: number | null;
   betaQQQ: number | null;
+  // Whether the SPY/QQQ price fetch actually returned anything for this period.
+  // Distinguishes "benchmark data unavailable" (Yahoo fetch failed/rate-limited —
+  // an infra hiccup) from "insufficient sub-periods" (a real portfolio-shape
+  // limitation) — beta/chartPoints go null either way, but the UI shouldn't
+  // blame the wrong cause. Portfolio holdings already degrade gracefully
+  // (buildSnapshot falls back to avg cost); benchmark prices have no such
+  // per-symbol fallback since there's no sensible "cost basis" for an index.
+  spyDataAvailable: boolean;
+  qqqDataAvailable: boolean;
   chartPoints: ChartPoint[];
 };
 
@@ -328,6 +337,8 @@ export function computeTWR(
     qqqAnnualized,
     beta: null,    // populated by the server fn
     betaQQQ: null, // populated by the server fn
+    spyDataAvailable: Object.keys(benchmarkPrices).length > 0,
+    qqqDataAvailable: Object.keys(benchmarkPricesQQQ).length > 0,
     chartPoints,
   };
 }

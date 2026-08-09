@@ -8,7 +8,7 @@ import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { parsePortfolioExcel } from "@/lib/excel-import";
 import { parseOFXFile } from "@/lib/ofx-import";
-import { bulkInsertTransactions, type TxnInput } from "@/lib/transactions.functions";
+import { bulkInsertTransactions, listAccounts, deleteAccount, DEMO_ACCOUNT, type TxnInput } from "@/lib/transactions.functions";
 import { bulkUpsertMappings } from "@/lib/symbol-mappings.functions";
 import { CUSIP_SEED, isCusip } from "@/lib/symbol-resolver";
 import { readFileData, parseWithMapping, type RawFileData, type ActionOverrideMap } from "@/lib/generic-import";
@@ -351,6 +351,14 @@ function UploadPage() {
 
   const submit = useMutation({
     mutationFn: async () => {
+      // Demo data and real data are never allowed to coexist (see DemoDataBanner) —
+      // a real upload always graduates out of demo mode first, so nobody ends up
+      // with fake sample transactions silently mixed into their real numbers.
+      const existingAccounts = await listAccounts();
+      if (existingAccounts.includes(DEMO_ACCOUNT)) {
+        await deleteAccount({ data: { account: DEMO_ACCOUNT } });
+      }
+
       const result = await bulkInsertTransactions({ data: { rows } });
 
       const cusipDescriptions = new Map<string, string>();
@@ -382,6 +390,7 @@ function UploadPage() {
       setImportError(null);
       toast.success(`Imported ${r.inserted} transactions`);
       qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["symbol_mappings"] });
       qc.invalidateQueries({ queryKey: ["prices"] });
       qc.invalidateQueries({ queryKey: ["inception-date"] });

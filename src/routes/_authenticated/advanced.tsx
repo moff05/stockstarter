@@ -795,11 +795,14 @@ function AdvancedPage() {
                       </>
                     );
                   }
+                  const benchAvailable = benchSym === "QQQ" ? result.qqqDataAvailable : result.spyDataAvailable;
                   return (
                     <>
                       <KpiLabel tip="How much your portfolio tends to move relative to the benchmark. 1.0 = moves with it, above 1.0 = swings harder in both directions, below 1.0 = steadier.">Portfolio Beta</KpiLabel>
                       <div className="text-2xl font-bold tracking-tight text-muted-foreground">—</div>
-                      <div className="text-xs mt-1">needs ≥ 4 sub-periods</div>
+                      <div className="text-xs mt-1">
+                        {benchAvailable ? "needs ≥ 4 sub-periods" : `${benchLabel} data unavailable`}
+                      </div>
                     </>
                   );
                 })()}

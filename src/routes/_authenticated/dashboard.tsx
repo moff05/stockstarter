@@ -1,6 +1,6 @@
 ﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { AsOfDatePicker } from "@/components/AsOfDatePicker";
 import { DataIntegrityBanner } from "@/components/DataIntegrityBanner";
@@ -10,13 +10,15 @@ import { getAssetClass, getSector } from "@/lib/sector";
 import { getNavHistory } from "@/lib/performance.functions";
 import { getHistoricalCloses } from "@/lib/prices.functions";
 import { useAccountFilter } from "@/lib/account-filter";
+import { loadDemoData } from "@/lib/demo-data";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
   Treemap, AreaChart, Area, type TooltipProps,
 } from "recharts";
-import { PiggyBank } from "lucide-react";
+import { PiggyBank, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — StockStarter" }] }),
@@ -432,7 +434,7 @@ function Dashboard() {
           <PeriodToggle value={navPeriod} onChange={setNavPeriod} compact />
         </div>
         {navData.length < 2 ? (
-          <EmptyState height={280} />
+          <EmptyState height={280} showDemo={txns.length === 0} />
         ) : (
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={navChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
@@ -605,7 +607,20 @@ function Dashboard() {
   );
 }
 
-function EmptyState({ height = 240 }: { height?: number }) {
+function EmptyState({ height = 240, showDemo = false }: { height?: number; showDemo?: boolean }) {
+  const qc = useQueryClient();
+  const demoMutation = useMutation({
+    mutationFn: loadDemoData,
+    onSuccess: () => {
+      toast.success("Demo data loaded — this is sample data, not real holdings.");
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["nav-history"] });
+      qc.invalidateQueries({ queryKey: ["inception-date"] });
+    },
+    onError: () => toast.error("Couldn't load demo data. Try again."),
+  });
+
   return (
     <div className="flex items-center justify-center" style={{ height }}>
       <div className="text-center max-w-xs px-4">
@@ -614,12 +629,29 @@ function EmptyState({ height = 240 }: { height?: number }) {
         <p className="text-xs text-muted-foreground mb-4">
           Upload a broker statement or CSV export and this chart fills in automatically.
         </p>
-        <Link
-          to="/upload"
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium px-3.5 py-1.5 hover:opacity-90 transition-opacity"
-        >
-          Upload a statement
-        </Link>
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          <Link
+            to="/upload"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium px-3.5 py-1.5 hover:opacity-90 transition-opacity"
+          >
+            Upload a statement
+          </Link>
+          {showDemo && (
+            <button
+              type="button"
+              onClick={() => demoMutation.mutate()}
+              disabled={demoMutation.isPending}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border text-foreground text-xs font-medium px-3.5 py-1.5 hover:bg-muted/60 transition-colors disabled:opacity-60"
+            >
+              {demoMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              Load demo data
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
