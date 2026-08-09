@@ -94,9 +94,35 @@ export const getPerformance = createServerFn({ method: "POST" })
     }
     const extraBoundaries = [...inKindBoundaries].sort();
 
-    // Unique price dates needed: startDate, endDate, each CF/in-kind date + day before
+    // Display-only date spine: chain-linking sub-period returns through these adds no
+    // cash flow, so it changes nothing about twr/twrAnnualized — it only gives the chart
+    // (and volatility/beta/Sharpe, which all key off subPeriods needing >=4 entries) real
+    // interim resolution instead of a straight line between just startDate and endDate.
+    // Hybrid density mirrors getNavHistory: daily for the most recent year, weekly before
+    // that, so multi-year "Inception" views stay bounded.
+    function chartSpine(start: string, end: string): string[] {
+      const dailyFrom = isoAddDays(end, -365) > start ? isoAddDays(end, -365) : start;
+      const dates: string[] = [];
+      for (let d = start; d < dailyFrom; d = isoAddDays(d, 7)) dates.push(d);
+      for (let d = dailyFrom; d < end; d = isoAddDays(d, 1)) dates.push(d);
+      return dates.filter((d) => d > start && d < end);
+    }
+    // Keep spine dates out of the deploy-lag window right after a real contribution/
+    // distribution: computeTWR's undeployed-cash adjustment (see twr.ts) only smooths
+    // that gap across the whole coarse contribution-to-next-boundary span, not across
+    // synthetic sub-boundaries injected inside it — subdividing there would read as
+    // capital vanishing to $0 for a few days before the deposit is actually invested.
+    const DEPLOY_BUFFER_DAYS = 7;
+    function nearCashFlow(d: string): boolean {
+      return cfDates.some((cf) => d >= cf && d <= isoAddDays(cf, DEPLOY_BUFFER_DAYS));
+    }
+    const displayBoundaries = Array.from(
+      new Set(chartSpine(startDate, endDate).filter((d) => !nearCashFlow(d))),
+    ).sort();
+
+    // Unique price dates needed: startDate, endDate, each CF/in-kind/chart-spine date + day before
     const priceDateSet = new Set<string>([startDate, endDate]);
-    for (const d of [...cfDates, ...extraBoundaries]) {
+    for (const d of [...cfDates, ...extraBoundaries, ...displayBoundaries]) {
       priceDateSet.add(d);
       priceDateSet.add(isoAddDays(d, -1));
     }
@@ -190,7 +216,7 @@ export const getPerformance = createServerFn({ method: "POST" })
       if (prices["QQQ"]) benchmarkPricesQQQ[date] = prices["QQQ"];
     }
 
-    const result = computeTWR(txns, startDate, endDate, pricesByDate, benchmarkPrices, benchmarkPricesQQQ, extraBoundaries);
+    const result = computeTWR(txns, startDate, endDate, pricesByDate, benchmarkPrices, benchmarkPricesQQQ, extraBoundaries, displayBoundaries);
 
     // IRR (dollar-weighted return): start value as outflow, end value as inflow,
     // with contributions/distributions as intermediate flows.

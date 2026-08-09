@@ -119,6 +119,7 @@ export function computeTWR(
   benchmarkPrices: Record<string, number> = {},
   benchmarkPricesQQQ: Record<string, number> = {},
   extraBoundaries: string[] = [],
+  displayBoundaries: string[] = [],
 ): PerformanceResult {
   // Separate contribution/distribution dates from in-kind boundaries so we can
   // adjust startValue for the contribution case (see below).
@@ -134,10 +135,18 @@ export function computeTWR(
       .map((t) => t.trade_date),
   );
 
+  // Real event boundaries (a CONTRIBUTION/DISTRIBUTION/in-kind BUY genuinely happens on
+  // that date) vs. displayBoundaries (pure chart-resolution dates with no event at all).
+  // Only real boundaries get the "day before" lookback below — see periodEnd.
+  const realBoundaryDates = new Set([
+    ...contributionDates,
+    ...extraBoundaries.filter((d) => d > startDate && d < endDate),
+  ]);
+
   const allBoundaryDates = Array.from(
     new Set([
-      ...contributionDates,
-      ...extraBoundaries.filter((d) => d > startDate && d < endDate),
+      ...realBoundaryDates,
+      ...displayBoundaries.filter((d) => d > startDate && d < endDate),
     ]),
   ).sort();
 
@@ -155,7 +164,14 @@ export function computeTWR(
   for (let i = 0; i < boundaries.length - 1; i++) {
     const periodStart = boundaries[i];
     const nextBoundary = boundaries[i + 1];
-    const periodEnd = nextBoundary === endDate ? endDate : isoAddDays(nextBoundary, -1);
+    // Stop the day before a REAL event boundary (valuing exactly on the day money lands
+    // is ambiguous — before or after the deposit?). A pure display boundary has no event
+    // on it, so chain straight through: periodEnd = nextBoundary, giving a true 1-day
+    // (or however dense the spine is) return instead of collapsing to a 0-length period.
+    const periodEnd =
+      nextBoundary === endDate || !realBoundaryDates.has(nextBoundary)
+        ? nextBoundary
+        : isoAddDays(nextBoundary, -1);
 
     const startSnap = buildSnapshot(txns, periodStart, pricesByDate[periodStart] ?? {});
     const endSnap = buildSnapshot(txns, periodEnd, pricesByDate[periodEnd] ?? {});
@@ -165,6 +181,9 @@ export function computeTWR(
     // totalMarketValue alone omits that cash from the denominator, inflating the return
     // when those securities later appear in endValue. Add the undeployed contribution
     // cash so the denominator correctly reflects all capital at risk.
+    // (The caller keeps synthetic chart-resolution boundaries out of this deploy-lag
+    // window — see chartSpine's nearCashFlow filter in performance.functions.ts — so this
+    // span is never subdivided mid-lag; totalMarketValue alone is not used here.)
     let startValue = startSnap.totalMarketValue;
     if (contributionDates.has(periodStart)) {
       const contributedToday = txns
