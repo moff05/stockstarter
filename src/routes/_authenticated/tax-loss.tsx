@@ -33,6 +33,26 @@ function localDateStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Plain-English synthesis of why this specific position is (or isn't) a good harvest candidate right now. */
+function taxLossNarrative(
+  h: { unrealizedPL: number; unrealizedPLPct: number; ltLoss: number; stLoss: number; savings: number },
+  washSale: boolean,
+): string {
+  const pct = Math.abs(h.unrealizedPLPct).toFixed(1);
+  const hasLt = h.ltLoss < 0;
+  const hasSt = h.stLoss < 0;
+  const termPhrase = hasLt && hasSt
+    ? "a mix of long- and short-term lots"
+    : hasLt
+      ? "entirely long-term lots (20% rate)"
+      : "entirely short-term lots (37% rate)";
+  const base = `Down ${pct}% (${formatMoney(h.unrealizedPL)}), ${termPhrase} — harvesting today would realize an estimated ${formatMoney(h.savings)} in tax savings.`;
+  if (washSale) {
+    return `${base} A buy within the last 30 days puts this at wash-sale risk: the IRS would likely disallow the loss if you harvest now.`;
+  }
+  return `${base} No recent buys on this symbol, so no wash-sale risk from harvesting today.`;
+}
+
 function TaxLossPage() {
   const today = localDateStr();
   const [method, setMethod] = useState<LotMethod>("HIFO");
@@ -235,6 +255,21 @@ function TaxLossPage() {
                           {lots.length > 1 && (
                             <span className="text-[10px] text-muted-foreground font-normal">{lots.length} lots</span>
                           )}
+                          <TooltipProvider delayDuration={300}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-muted-foreground/50 text-[9px] leading-none hover:border-muted-foreground hover:text-muted-foreground transition-colors cursor-help flex-shrink-0"
+                                >
+                                  ?
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-[260px] text-xs leading-relaxed">
+                                {taxLossNarrative(h, washSale)}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </span>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{formatMoney(h.marketValue)}</TableCell>

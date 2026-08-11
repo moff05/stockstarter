@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SortHead, useSortable, sortRows } from "@/components/SortHead";
 
 export const Route = createFileRoute("/_authenticated/rebalancing")({
@@ -95,6 +96,36 @@ function generateObservations(holdings: any[]): Observation[] {
   return obs;
 }
 
+/** Plain-English synthesis of why this specific position looks the way it does, relative to the rest of the book. */
+function positionNarrative(
+  h: { symbol: string; weightPct: number; spxWeight: number },
+  rank: number,
+  n: number,
+  avgWeight: number,
+): string {
+  const parts: string[] = [];
+  const rankLabel = rank === 1 ? "Largest position" : rank === 2 ? "2nd largest position" : rank === 3 ? "3rd largest position" : null;
+  parts.push(rankLabel ? `${rankLabel} at ${h.weightPct.toFixed(1)}% of the portfolio` : `${h.weightPct.toFixed(1)}% of the portfolio (rank ${rank} of ${n})`);
+
+  const ratio = avgWeight > 0 ? h.weightPct / avgWeight : 0;
+  if (ratio >= 2) {
+    parts.push(`about ${ratio.toFixed(1)}x the average position size`);
+  }
+
+  if (h.spxWeight === 0) {
+    parts.push("not among the S&P 500's top holdings");
+  } else {
+    const relative = h.weightPct / h.spxWeight;
+    if (relative >= 3) {
+      parts.push(`weighted ${relative.toFixed(1)}x heavier here than in the S&P 500`);
+    } else if (relative <= 0.34) {
+      parts.push(`weighted lighter here than in the S&P 500`);
+    }
+  }
+
+  return parts.join(" — ") + ".";
+}
+
 function fmtDate(iso: string) {
   return new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "numeric", timeZone: "UTC",
@@ -141,6 +172,16 @@ function RebalancingPage() {
   }, [holdings]);
 
   const observations = useMemo(() => generateObservations(holdings), [holdings]);
+
+  const avgWeight = useMemo(
+    () => (sorted.length > 0 ? sorted.reduce((s, h) => s + h.weightPct, 0) / sorted.length : 0),
+    [sorted],
+  );
+  const rankBySymbol = useMemo(() => {
+    const m = new Map<string, number>();
+    sorted.forEach((h, i) => m.set(h.symbol, i + 1));
+    return m;
+  }, [sorted]);
 
   const top5Pct = sorted.slice(0, 5).reduce((s, h) => s + h.weightPct, 0);
   const top10Pct = sorted.slice(0, 10).reduce((s, h) => s + h.weightPct, 0);
@@ -366,7 +407,23 @@ function RebalancingPage() {
             {tableRows.map((h, i) => (
                 <TableRow key={h.symbol} className={h.weightPct > 5 ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}>
                   <TableCell className="text-muted-foreground tabular-nums">{i + 1}</TableCell>
-                  <TableCell className="font-medium text-foreground">{h.symbol}</TableCell>
+                  <TableCell className="font-medium text-foreground">
+                    <span className="flex items-center gap-1">
+                      {h.symbol}
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-muted-foreground/50 text-[9px] leading-none hover:border-muted-foreground hover:text-muted-foreground transition-colors cursor-help flex-shrink-0">
+                              ?
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-[260px] text-xs leading-relaxed">
+                            {positionNarrative(h, rankBySymbol.get(h.symbol) ?? i + 1, sorted.length, avgWeight)}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-muted">{h.sector}</span>
                   </TableCell>
