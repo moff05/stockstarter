@@ -410,6 +410,7 @@ function TaxLossPage() {
         <p>* {method} lot matching used to classify losses as long-term (&gt;1 year) or short-term (≤1 year). Toggle FIFO/HIFO above to see how lot selection method affects the breakdown.</p>
         <p>* Wash sale window: buys on or after {thirtyDaysAgo}. Selling and repurchasing within 31 days would disallow the loss.</p>
         <p>* Estimated savings: LT losses × 20% rate, ST losses × 37% rate. Actual rates depend on your total income and gain/loss picture for the year.</p>
+        <p>* Cost basis and lot dates depend on complete transaction history. If your upload is missing trades (see any data-integrity warning above), harvestable losses and long/short-term classification here may be inaccurate.</p>
         <p>* Not tax advice. Consult a tax advisor before executing any harvesting strategy.</p>
       </div>
     </div>
