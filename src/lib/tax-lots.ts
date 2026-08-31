@@ -46,7 +46,7 @@ export function buildLots(
     .filter(
       (t) =>
         t.trade_date <= asOfDate &&
-        (t.action === "BUY" || t.action === "SELL") &&
+        (t.action === "BUY" || t.action === "SELL" || t.action === "SPLIT") &&
         t.symbol,
     )
     .slice()
@@ -114,6 +114,16 @@ export function buildLots(
       }
 
       openLots[sym] = lots.filter((l) => l.qtyRemaining > 1e-9);
+    }
+
+    if (t.action === "SPLIT" && qty > 1e-9) {
+      const lots = openLots[sym];
+      if (!lots?.length) continue;
+      for (const lot of lots) {
+        lot.qtyOriginal *= qty;
+        lot.qtyRemaining *= qty;
+        lot.costPerShare = lot.totalCost / lot.qtyRemaining;
+      }
     }
   }
 

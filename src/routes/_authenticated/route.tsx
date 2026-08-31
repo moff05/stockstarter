@@ -1,5 +1,5 @@
 ﻿import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
-import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, Gauge, Menu, X, Trash2, Sparkles } from "lucide-react";
+import { LineChart, Briefcase, Receipt, FileText, BarChart3, Upload, TrendingUp, Scissors, DollarSign, SlidersHorizontal, ChevronDown, BookOpen, BookMarked, Scale, Gauge, Menu, X, Trash2, Sparkles, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatPanel } from "@/components/ChatPanel";
 import { AccountFilterProvider, useAccountFilter } from "@/lib/account-filter";
@@ -33,7 +33,8 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { to: "/holdings",    label: "Holdings",    icon: Briefcase },
       { to: "/income",      label: "Income",      icon: DollarSign },
       { to: "/sp500",       label: "Indices",     icon: BarChart3 },
-      { to: "/rebalancing", label: "Rebalancing", icon: SlidersHorizontal },
+      { to: "/rebalancing", label: "Concentration", icon: SlidersHorizontal },
+      { to: "/target-allocation", label: "Rebalancing", icon: Target },
       { to: "/tax-loss",    label: "Tax Loss",    icon: Scissors },
     ],
   },

@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { SortHead, useSortable, sortRows } from "@/components/SortHead";
 
 export const Route = createFileRoute("/_authenticated/rebalancing")({
-  head: () => ({ meta: [{ title: "Rebalancing — StockStarter" }] }),
+  head: () => ({ meta: [{ title: "Concentration Monitor — StockStarter" }] }),
   component: RebalancingPage,
 });
 

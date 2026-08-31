@@ -33,6 +33,12 @@ function localDateStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function addDays(iso: string, days: number) {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
 /** Plain-English synthesis of why this specific position is (or isn't) a good harvest candidate right now. */
 function taxLossNarrative(
   h: { unrealizedPL: number; unrealizedPLPct: number; ltLoss: number; stLoss: number; savings: number },
@@ -83,10 +89,30 @@ function TaxLossPage() {
     return set;
   }, [txns, thirtyDaysAgo]);
 
-  const { holdingsBySymbol } = useMemo(
+  const { holdingsBySymbol, disposals } = useMemo(
     () => buildLots(txns, method, today),
     [txns, method, today],
   );
+
+  // Post-harvest wash-sale reminders: losses realized in the last 30 days whose
+  // forward-looking wash-sale window (a rebuy in the NEXT 30 days) can't be checked
+  // automatically since it depends on trades that haven't happened yet.
+  const recentHarvests = useMemo(() => {
+    const bySymbol = new Map<string, { symbol: string; disposedDate: string; realizedGain: number }>();
+    for (const d of disposals) {
+      if (d.realizedGain >= 0 || d.disposedDate < thirtyDaysAgo) continue;
+      const existing = bySymbol.get(d.symbol);
+      if (!existing) {
+        bySymbol.set(d.symbol, { symbol: d.symbol, disposedDate: d.disposedDate, realizedGain: d.realizedGain });
+      } else {
+        existing.realizedGain += d.realizedGain;
+        if (d.disposedDate > existing.disposedDate) existing.disposedDate = d.disposedDate;
+      }
+    }
+    return [...bySymbol.values()]
+      .map((h) => ({ ...h, safeToRebuyDate: addDays(h.disposedDate, 31) }))
+      .sort((a, b) => b.disposedDate.localeCompare(a.disposedDate));
+  }, [disposals, thirtyDaysAgo]);
 
   // Per-position loss breakdown by holding period
   const candidates = useMemo(() => {
@@ -154,6 +180,30 @@ function TaxLossPage() {
       </div>
 
       <DataIntegrityBanner issues={unmatchedSells} />
+
+      {recentHarvests.length > 0 && (
+        <Card className="p-4 border-amber-500/30 bg-amber-500/5">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-foreground">Wash-sale watch: don't rebuy recently harvested losses</p>
+              <p className="text-xs text-muted-foreground">
+                Buying these back before their safe date would retroactively disallow the loss you just realized. This can't be checked automatically since it depends on trades that haven't happened yet — it's on you to avoid the rebuy.
+              </p>
+              <ul className="text-xs space-y-0.5 pt-1">
+                {recentHarvests.map((h) => (
+                  <li key={h.symbol} className="flex items-center gap-1.5">
+                    <span className="font-medium text-foreground">{h.symbol}</span>
+                    <span className="text-muted-foreground">
+                      — sold at a loss of {formatMoney(h.realizedGain)} on {fmtDate(h.disposedDate)}. Safe to rebuy on or after {fmtDate(h.safeToRebuyDate)}.
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="p-5">

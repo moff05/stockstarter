@@ -14,7 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 import { Route as AuthenticatedTransactionsRouteImport } from './routes/_authenticated/transactions'
 import { Route as AuthenticatedTaxLossRouteImport } from './routes/_authenticated/tax-loss'
-import { Route as AuthenticatedStatementRouteImport } from './routes/_authenticated/statement'
+import { Route as AuthenticatedTargetAllocationRouteImport } from './routes/_authenticated/target-allocation'
 import { Route as AuthenticatedSp500RouteImport } from './routes/_authenticated/sp500'
 import { Route as AuthenticatedRebalancingRouteImport } from './routes/_authenticated/rebalancing'
 import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
@@ -50,11 +50,12 @@ const AuthenticatedTaxLossRoute = AuthenticatedTaxLossRouteImport.update({
   path: '/tax-loss',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedStatementRoute = AuthenticatedStatementRouteImport.update({
-  id: '/statement',
-  path: '/statement',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedTargetAllocationRoute =
+  AuthenticatedTargetAllocationRouteImport.update({
+    id: '/target-allocation',
+    path: '/target-allocation',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSp500Route = AuthenticatedSp500RouteImport.update({
   id: '/sp500',
   path: '/sp500',
@@ -114,7 +115,7 @@ export interface FileRoutesByFullPath {
   '/performance': typeof AuthenticatedPerformanceRoute
   '/rebalancing': typeof AuthenticatedRebalancingRoute
   '/sp500': typeof AuthenticatedSp500Route
-  '/statement': typeof AuthenticatedStatementRoute
+  '/target-allocation': typeof AuthenticatedTargetAllocationRoute
   '/tax-loss': typeof AuthenticatedTaxLossRoute
   '/transactions': typeof AuthenticatedTransactionsRoute
   '/upload': typeof AuthenticatedUploadRoute
@@ -130,7 +131,7 @@ export interface FileRoutesByTo {
   '/performance': typeof AuthenticatedPerformanceRoute
   '/rebalancing': typeof AuthenticatedRebalancingRoute
   '/sp500': typeof AuthenticatedSp500Route
-  '/statement': typeof AuthenticatedStatementRoute
+  '/target-allocation': typeof AuthenticatedTargetAllocationRoute
   '/tax-loss': typeof AuthenticatedTaxLossRoute
   '/transactions': typeof AuthenticatedTransactionsRoute
   '/upload': typeof AuthenticatedUploadRoute
@@ -148,7 +149,7 @@ export interface FileRoutesById {
   '/_authenticated/performance': typeof AuthenticatedPerformanceRoute
   '/_authenticated/rebalancing': typeof AuthenticatedRebalancingRoute
   '/_authenticated/sp500': typeof AuthenticatedSp500Route
-  '/_authenticated/statement': typeof AuthenticatedStatementRoute
+  '/_authenticated/target-allocation': typeof AuthenticatedTargetAllocationRoute
   '/_authenticated/tax-loss': typeof AuthenticatedTaxLossRoute
   '/_authenticated/transactions': typeof AuthenticatedTransactionsRoute
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
@@ -166,7 +167,7 @@ export interface FileRouteTypes {
     | '/performance'
     | '/rebalancing'
     | '/sp500'
-    | '/statement'
+    | '/target-allocation'
     | '/tax-loss'
     | '/transactions'
     | '/upload'
@@ -182,7 +183,7 @@ export interface FileRouteTypes {
     | '/performance'
     | '/rebalancing'
     | '/sp500'
-    | '/statement'
+    | '/target-allocation'
     | '/tax-loss'
     | '/transactions'
     | '/upload'
@@ -199,7 +200,7 @@ export interface FileRouteTypes {
     | '/_authenticated/performance'
     | '/_authenticated/rebalancing'
     | '/_authenticated/sp500'
-    | '/_authenticated/statement'
+    | '/_authenticated/target-allocation'
     | '/_authenticated/tax-loss'
     | '/_authenticated/transactions'
     | '/_authenticated/upload'
@@ -247,11 +248,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTaxLossRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/statement': {
-      id: '/_authenticated/statement'
-      path: '/statement'
-      fullPath: '/statement'
-      preLoaderRoute: typeof AuthenticatedStatementRouteImport
+    '/_authenticated/target-allocation': {
+      id: '/_authenticated/target-allocation'
+      path: '/target-allocation'
+      fullPath: '/target-allocation'
+      preLoaderRoute: typeof AuthenticatedTargetAllocationRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/sp500': {
@@ -330,7 +331,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPerformanceRoute: typeof AuthenticatedPerformanceRoute
   AuthenticatedRebalancingRoute: typeof AuthenticatedRebalancingRoute
   AuthenticatedSp500Route: typeof AuthenticatedSp500Route
-  AuthenticatedStatementRoute: typeof AuthenticatedStatementRoute
+  AuthenticatedTargetAllocationRoute: typeof AuthenticatedTargetAllocationRoute
   AuthenticatedTaxLossRoute: typeof AuthenticatedTaxLossRoute
   AuthenticatedTransactionsRoute: typeof AuthenticatedTransactionsRoute
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
@@ -346,7 +347,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPerformanceRoute: AuthenticatedPerformanceRoute,
   AuthenticatedRebalancingRoute: AuthenticatedRebalancingRoute,
   AuthenticatedSp500Route: AuthenticatedSp500Route,
-  AuthenticatedStatementRoute: AuthenticatedStatementRoute,
+  AuthenticatedTargetAllocationRoute: AuthenticatedTargetAllocationRoute,
   AuthenticatedTaxLossRoute: AuthenticatedTaxLossRoute,
   AuthenticatedTransactionsRoute: AuthenticatedTransactionsRoute,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,

@@ -634,7 +634,7 @@ function UploadPage() {
           </div>
           <div className="flex gap-2 shrink-0">
             <Button variant="outline" size="sm" asChild>
-              <Link to="/statement">
+              <Link to="/financials" search={{ tab: "capital" }}>
                 <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
                 View Statement
               </Link>

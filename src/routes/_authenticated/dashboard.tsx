@@ -16,7 +16,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
   Treemap, AreaChart, Area, type TooltipProps,
 } from "recharts";
-import { PiggyBank, Sparkles, Loader2 } from "lucide-react";
+import { PiggyBank, Sparkles, Loader2, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -434,7 +434,19 @@ function Dashboard() {
           <PeriodToggle value={navPeriod} onChange={setNavPeriod} compact />
         </div>
         {navData.length < 2 ? (
-          <EmptyState height={280} showDemo={txns.length === 0} />
+          txns.length === 0 ? (
+            <EmptyState height={280} showDemo />
+          ) : (
+            <div className="flex items-center justify-center" style={{ height: 280 }}>
+              <div className="text-center max-w-xs px-4">
+                <TrendingUp className="w-9 h-9 mx-auto mb-3 text-primary/50" />
+                <p className="text-sm font-medium text-foreground mb-1">Building history</p>
+                <p className="text-xs text-muted-foreground">
+                  This chart needs at least two days of portfolio value to plot a trend. Check back after your next trading day.
+                </p>
+              </div>
+            </div>
+          )
         ) : (
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={navChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
