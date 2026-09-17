@@ -21,11 +21,15 @@ export const Route = createFileRoute("/_authenticated/income")({
 function sharesAtDate(txns: Transaction[], symbol: string, date: string): number {
   let qty = 0;
   const sym = symbol.toUpperCase();
-  for (const t of txns) {
-    if ((t.symbol ?? "").toUpperCase() !== sym) continue;
-    if (t.trade_date > date) continue;
-    if (t.action === "BUY") qty += Math.abs(Number(t.quantity ?? 0));
-    if (t.action === "SELL") qty -= Math.abs(Number(t.quantity ?? 0));
+  const relevant = txns
+    .filter((t) => (t.symbol ?? "").toUpperCase() === sym && t.trade_date <= date)
+    .slice()
+    .sort((a, b) => a.trade_date.localeCompare(b.trade_date) || a.id.localeCompare(b.id));
+  for (const t of relevant) {
+    const txnQty = Math.abs(Number(t.quantity ?? 0));
+    if (t.action === "BUY") qty += txnQty;
+    if (t.action === "SELL") qty -= txnQty;
+    if (t.action === "SPLIT" && txnQty > 1e-9) qty *= txnQty;
   }
   return Math.max(0, qty);
 }

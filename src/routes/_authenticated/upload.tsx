@@ -4,11 +4,11 @@ import { getHistoricalCloses, getQuotes } from "@/lib/prices.functions";
 import { buildPeriodActivity, quarterBounds, isoAddDays } from "@/lib/portfolio";
 import { exportStatementPDF } from "@/lib/export-pdf";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { parsePortfolioExcel } from "@/lib/excel-import";
 import { parseOFXFile } from "@/lib/ofx-import";
-import { bulkInsertTransactions, listAccounts, deleteAccount, DEMO_ACCOUNT, type TxnInput } from "@/lib/transactions.functions";
+import { bulkInsertTransactions, findDuplicateFlags, listAccounts, deleteAccount, DEMO_ACCOUNT, type TxnInput } from "@/lib/transactions.functions";
 import { bulkUpsertMappings } from "@/lib/symbol-mappings.functions";
 import { CUSIP_SEED, isCusip } from "@/lib/symbol-resolver";
 import { readFileData, parseWithMapping, type RawFileData, type ActionOverrideMap } from "@/lib/generic-import";
@@ -17,8 +17,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, CheckCircle2, FileSpreadsheet, FileDown, ExternalLink, Loader2, ChevronRight, X, Tag } from "lucide-react";
+import { Upload, FileText, CheckCircle2, FileSpreadsheet, FileDown, ExternalLink, Loader2, ChevronRight, X, Tag, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { formatMoney } from "@/lib/portfolio";
 
@@ -348,6 +349,22 @@ function UploadPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
   const [lastImport, setLastImport] = useState<{ quarter: number; year: number } | null>(null);
+  const [duplicateFlags, setDuplicateFlags] = useState<boolean[]>([]);
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
+
+  // Recompute which parsed rows already exist in storage whenever a new batch is parsed —
+  // catches a re-uploaded statement or two exports with an overlapping date range.
+  useEffect(() => {
+    if (rows.length === 0) { setDuplicateFlags([]); return; }
+    let cancelled = false;
+    findDuplicateFlags({ data: { rows } }).then((flags) => {
+      if (!cancelled) setDuplicateFlags(flags);
+    });
+    return () => { cancelled = true; };
+  }, [rows]);
+
+  const duplicateCount = duplicateFlags.filter(Boolean).length;
+  const rowsToImport = skipDuplicates ? rows.filter((_, i) => !duplicateFlags[i]) : rows;
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -359,10 +376,10 @@ function UploadPage() {
         await deleteAccount({ data: { account: DEMO_ACCOUNT } });
       }
 
-      const result = await bulkInsertTransactions({ data: { rows } });
+      const result = await bulkInsertTransactions({ data: { rows: rowsToImport } });
 
       const cusipDescriptions = new Map<string, string>();
-      for (const r of rows) {
+      for (const r of rowsToImport) {
         if (r.symbol && isCusip(r.symbol)) {
           const c = r.symbol.toUpperCase();
           if (!cusipDescriptions.has(c)) {
@@ -395,7 +412,7 @@ function UploadPage() {
       qc.invalidateQueries({ queryKey: ["prices"] });
       qc.invalidateQueries({ queryKey: ["inception-date"] });
       qc.invalidateQueries({ queryKey: ["nav-history"] });
-      const dates = rows.map((r) => r.trade_date).filter(Boolean).sort();
+      const dates = rowsToImport.map((r) => r.trade_date).filter(Boolean).sort();
       if (dates.length > 0) {
         const latest = new Date(dates[dates.length - 1] + "T00:00:00Z");
         setLastImport({ quarter: Math.floor(latest.getUTCMonth() / 3) + 1, year: latest.getUTCFullYear() });
@@ -422,6 +439,8 @@ function UploadPage() {
     setRows([]);
     setSkippedCount(0);
     setErrors([]);
+    setDuplicateFlags([]);
+    setSkipDuplicates(true);
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -522,7 +541,7 @@ function UploadPage() {
 
   function onConfirmMapping() {
     if (!rawFileData) return;
-    const { rows: parsed, skipped } = parseWithMapping(
+    const { rows: parsed, skipped, errors: parseErrors } = parseWithMapping(
       rawFileData.rows,
       columnMap,
       actionOverrides,
@@ -535,7 +554,7 @@ function UploadPage() {
     }
     setRows(parsed);
     setSkippedCount(skipped);
-    setErrors([]);
+    setErrors(parseErrors);
     setStage("preview");
     toast.success(`Parsed ${parsed.length} transactions${skipped > 0 ? ` (${skipped} skipped)` : ""} — review and import.`);
   }
@@ -618,6 +637,23 @@ function UploadPage() {
         </Card>
       )}
 
+      {/* Duplicate warning */}
+      {stage === "preview" && duplicateCount > 0 && (
+        <Card className="p-4 border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm space-y-2">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {duplicateCount} of these {duplicateCount === 1 ? "transaction matches" : "transactions match"} one already in your account
+          </div>
+          <p className="text-xs">
+            Matched on date, action, symbol, quantity, amount, and account — likely from a re-uploaded or overlapping statement.
+          </p>
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <Checkbox checked={skipDuplicates} onCheckedChange={(v) => setSkipDuplicates(v === true)} />
+            Skip {duplicateCount} duplicate{duplicateCount === 1 ? "" : "s"} on import (recommended)
+          </label>
+        </Card>
+      )}
+
       {/* Success card after import */}
       {lastImport && (
         <Card className="p-5 flex items-center justify-between gap-4 border-gain/30 bg-gain/5">
@@ -675,11 +711,11 @@ function UploadPage() {
               <Button variant="outline" size="sm" onClick={() => rawFileData ? setStage("mapping") : resetAll()}>
                 ← Back
               </Button>
-              <Button onClick={() => submit.mutate()} disabled={submit.isPending}>
+              <Button onClick={() => submit.mutate()} disabled={submit.isPending || rowsToImport.length === 0}>
                 {submit.isPending
                   ? <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                   : <CheckCircle2 className="w-4 h-4 mr-1" />}
-                {submit.isPending ? "Importing…" : `Import ${rows.length} transactions`}
+                {submit.isPending ? "Importing…" : `Import ${rowsToImport.length} transactions`}
               </Button>
             </div>
           </div>
@@ -698,12 +734,17 @@ function UploadPage() {
               </TableHeader>
               <TableBody>
                 {rows.slice(0, 200).map((r, i) => (
-                  <TableRow key={i}>
+                  <TableRow key={i} className={duplicateFlags[i] ? "opacity-50" : undefined}>
                     <TableCell className="tabular-nums">{r.trade_date}</TableCell>
                     <TableCell>
                       <span className={`text-xs px-2 py-0.5 rounded font-medium ${actionBadge(r.action)}`}>
                         {r.action}
                       </span>
+                      {duplicateFlags[i] && (
+                        <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                          duplicate
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium text-foreground">{r.symbol ?? "—"}</TableCell>
                     <TableCell className="max-w-[220px] truncate text-xs">{r.description ?? ""}</TableCell>

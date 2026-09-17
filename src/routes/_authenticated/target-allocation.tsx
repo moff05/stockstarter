@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { usePortfolio } from "@/hooks/use-portfolio";
+import { useAccountFilter } from "@/lib/account-filter";
 import { formatMoney } from "@/lib/portfolio";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,25 +15,38 @@ export const Route = createFileRoute("/_authenticated/target-allocation")({
 });
 
 const CASH_KEY = "__CASH__";
-const STORAGE_KEY = "targetAllocations";
+// Pre-account-scoping key — targets saved here applied globally regardless of
+// the account filter. Migrated into the "all accounts" bucket below so nobody
+// loses existing targets when this page became account-aware.
+const LEGACY_STORAGE_KEY = "targetAllocations";
 
-function loadTargets(): Record<string, number> {
+function storageKeyFor(account: string | null): string {
+  return account ? `targetAllocations:${account}` : "targetAllocations:__ALL__";
+}
+
+function loadTargets(account: string | null): Record<string, number> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const raw = localStorage.getItem(storageKeyFor(account));
+    if (raw) return JSON.parse(raw);
+    if (!account) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy) return JSON.parse(legacy);
+    }
+    return {};
   } catch {
     return {};
   }
 }
 
-function saveTargets(targets: Record<string, number>) {
+function saveTargets(account: string | null, targets: Record<string, number>) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(targets));
+    localStorage.setItem(storageKeyFor(account), JSON.stringify(targets));
   } catch {}
 }
 
 function TargetAllocationPage() {
   const { snapshot, isLoading } = usePortfolio();
+  const { account } = useAccountFilter();
   const holdings = snapshot.holdings;
 
   const [targets, setTargets] = useState<Record<string, number>>({});
@@ -40,9 +54,9 @@ function TargetAllocationPage() {
   const [tolerance, setTolerance] = useState(2);
 
   useEffect(() => {
-    setTargets(loadTargets());
+    setTargets(loadTargets(account));
     setLoaded(true);
-  }, []);
+  }, [account]);
 
   // Rows: every currently held symbol + a synthetic Cash row, sorted by current market value.
   const rows = useMemo(() => {
@@ -71,7 +85,7 @@ function TargetAllocationPage() {
   function setTarget(key: string, pct: number) {
     const next = { ...targets, [key]: pct };
     setTargets(next);
-    saveTargets(next);
+    saveTargets(account, next);
   }
 
   function resetToCurrent() {
@@ -80,7 +94,7 @@ function TargetAllocationPage() {
       next[r.key] = totalEquity > 0 ? (r.currentValue / totalEquity) * 100 : 0;
     }
     setTargets(next);
-    saveTargets(next);
+    saveTargets(account, next);
   }
 
   const enrichedRows = useMemo(() => {

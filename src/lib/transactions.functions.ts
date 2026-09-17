@@ -91,6 +91,26 @@ export async function bulkInsertTransactions(opts: { data: { rows: TxnInput[] } 
   return { inserted: parsed.length };
 }
 
+// A duplicate is the same date/action/symbol/quantity/amount/account combination —
+// the exact shape a re-uploaded statement, or two exports with an overlapping date
+// range, would produce for the same real-world transaction.
+function fingerprint(r: Pick<TxnInput, "trade_date" | "action" | "symbol" | "quantity" | "amount" | "account">): string {
+  return [
+    r.trade_date,
+    r.action,
+    (r.symbol ?? "").toUpperCase(),
+    (r.quantity ?? 0).toFixed(4),
+    r.amount.toFixed(2),
+    r.account ?? "",
+  ].join("|");
+}
+
+/** For each row, whether an identical transaction already exists in storage. */
+export async function findDuplicateFlags(opts: { data: { rows: TxnInput[] } }): Promise<boolean[]> {
+  const existing = new Set(readAll().map(fingerprint));
+  return opts.data.rows.map((r) => existing.has(fingerprint(r)));
+}
+
 export async function deleteTransaction(opts: { data: { id: string } }): Promise<{ ok: true }> {
   writeAll(readAll().filter((r) => r.id !== opts.data.id));
   return { ok: true };

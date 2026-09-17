@@ -2,7 +2,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import type { TxnInput } from "./transactions.functions";
 import type { OurField, ColumnMapping, BrokerFormat } from "./broker-formats";
-import { detectBroker, resolveAction } from "./broker-formats";
+import { detectBroker, resolveAction, resolveSplitRatio } from "./broker-formats";
 
 export type RawFileData = {
   headers: string[];
@@ -141,8 +141,9 @@ export function parseWithMapping(
   actionOverrides: ActionOverrideMap,
   brokerActionMap?: Record<string, TxnInput["action"]>,
   defaultAccount?: string | null,
-): { rows: TxnInput[]; skipped: number } {
+): { rows: TxnInput[]; skipped: number; errors: string[] } {
   const out: TxnInput[] = [];
+  const errors: string[] = [];
   let skipped = 0;
 
   for (const raw of rows) {
@@ -168,10 +169,20 @@ export function parseWithMapping(
 
     const symbol = (get(raw, columnMap.symbol) || "").toUpperCase() || null;
     const description = get(raw, columnMap.description) || null;
-    const quantity = Math.abs(num(get(raw, columnMap.quantity)));
     const price = Math.abs(num(get(raw, columnMap.price)));
     const fees = Math.abs(num(get(raw, columnMap.fees)));
     const account = get(raw, columnMap.account) || defaultAccount || null;
+
+    let quantity = Math.abs(num(get(raw, columnMap.quantity)));
+    if (action === "SPLIT") {
+      const { ratio, confident } = resolveSplitRatio(description, quantity);
+      quantity = ratio;
+      if (!confident) {
+        errors.push(
+          `${trade_date} ${symbol ?? ""}: couldn't read the split ratio from "${description ?? "(no description)"}" — verify the Quantity (${ratio}) is the split ratio (e.g. 2 for a 2-for-1 split) before importing.`,
+        );
+      }
+    }
 
     out.push({
       trade_date,
@@ -187,7 +198,7 @@ export function parseWithMapping(
     });
   }
 
-  return { rows: out, skipped };
+  return { rows: out, skipped, errors };
 }
 
 // ---------------------------------------------------------------------------

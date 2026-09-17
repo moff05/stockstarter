@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 import type { TxnInput } from "./transactions.functions";
+import { resolveSplitRatio } from "./broker-formats";
 
 /** Best-effort mapper for Fifth Third Securities and generic broker CSV exports. */
 export function parseBrokerCsv(text: string): { rows: TxnInput[]; errors: string[] } {
@@ -86,12 +87,23 @@ export function parseBrokerCsv(text: string): { rows: TxnInput[]; errors: string
     }
     const fees = num(lower["commission"] || lower["fees"] || lower["fee"]);
 
+    let finalQuantity = Math.abs(quantity);
+    if (action === "SPLIT") {
+      const { ratio, confident } = resolveSplitRatio(description, finalQuantity);
+      finalQuantity = ratio;
+      if (!confident) {
+        errors.push(
+          `${trade_date} ${symbol ?? ""}: couldn't read the split ratio from "${description ?? "(no description)"}" — verify the Quantity (${ratio}) is the split ratio (e.g. 2 for a 2-for-1 split) before importing.`,
+        );
+      }
+    }
+
     rows.push({
       trade_date,
       symbol,
       description,
       action,
-      quantity: Math.abs(quantity),
+      quantity: finalQuantity,
       price: Math.abs(price),
       amount,
       fees: Math.abs(fees),

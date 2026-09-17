@@ -281,3 +281,25 @@ export function resolveAction(
 
   return null;
 }
+
+/**
+ * Downstream math (portfolio.ts, tax-lots.ts) treats a SPLIT row's quantity
+ * as the split ratio itself (e.g. 2 for a 2-for-1 split), but broker exports
+ * typically put new-shares-issued in the Quantity column and spell the real
+ * ratio out in the description ("STOCK SPLIT 2 FOR 1", "SPLIT 3:2"). Try to
+ * parse the ratio out of the description first; only fall back to the raw
+ * quantity — flagged as unconfident — when no ratio pattern is found.
+ */
+export function resolveSplitRatio(
+  description: string | null | undefined,
+  rawQuantity: number,
+): { ratio: number; confident: boolean } {
+  const text = description ?? "";
+  const m = text.match(/(\d+(?:\.\d+)?)\s*(?:-|\s)?(?:FOR|:|\/)\s*(\d+(?:\.\d+)?)/i);
+  if (m) {
+    const numerator = Number(m[1]);
+    const denominator = Number(m[2]);
+    if (denominator > 0) return { ratio: numerator / denominator, confident: true };
+  }
+  return { ratio: rawQuantity > 0 ? rawQuantity : 1, confident: false };
+}

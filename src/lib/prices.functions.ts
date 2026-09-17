@@ -375,7 +375,9 @@ export const getHistoricalCloses = createServerFn({ method: "POST" })
           }
           if (pick != null) {
             out[sym] = pick;
-            try { upsertCache.run(yhSym, data.asOfDate, pick); } catch { /* non-fatal */ }
+            // Cache keyed by the original (dot-form) symbol to match the read above —
+            // yhSym is only Yahoo's request format, never how we look the cache back up.
+            try { upsertCache.run(sym, data.asOfDate, pick); } catch { /* non-fatal */ }
           } else {
             out[sym] = 0;
           }
