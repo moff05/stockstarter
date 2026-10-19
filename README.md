@@ -4,7 +4,7 @@ A beginner-friendly stock portfolio tracker that never leaves your browser. Uplo
 
 Reads broker export files (Excel or CSV), resolves holdings, fetches live prices from Yahoo Finance, and delivers analytics across performance, income, risk, and taxes. No account, no login, nothing to install — your transactions are parsed in the browser and stored in `localStorage` on your own device. Accessible on web and mobile.
 
-**[Live demo →](https://stockstarter-production.up.railway.app)** — no signup, just upload a statement (a synthetic one is fine — nothing you upload leaves your browser)
+**[Live demo →](https://stockstarter-six.vercel.app)** — no signup, just upload a statement (a synthetic one is fine — nothing you upload leaves your browser)
 
 ![StockStarter dashboard: portfolio value, NAV chart over time, and a per-position unrealized P/L treemap](docs/screenshots/dashboard.jpg)
 
@@ -76,7 +76,7 @@ Brokerage dashboards show you a number and stop there — no explanation of what
 
 ## Access
 
-Open the [live demo](https://stockstarter-production.up.railway.app) in any browser (desktop or mobile) and upload a statement — there's no account to create and nothing to install. The UI is responsive — on phones the nav collapses into a drawer, and "Add to Home Screen" makes it behave like an app.
+Open the [live demo](https://stockstarter-six.vercel.app) in any browser (desktop or mobile) and upload a statement — there's no account to create and nothing to install. The UI is responsive — on phones the nav collapses into a drawer, and "Add to Home Screen" makes it behave like an app.
 
 Every account you upload lives only in that browser's `localStorage`, on that device. There's no server-side database of anyone's holdings — clearing your browser data or switching devices means starting over with a re-upload, which is the tradeoff for nothing ever being stored anywhere else.
 
@@ -98,7 +98,7 @@ New account data: upload an `.xlsx`/`.csv` file directly from `/upload`. Overwri
 | PDF export | jsPDF + jspdf-autotable |
 | Prices | Yahoo Finance (no API key required) |
 | AI | Anthropic Claude (Haiku) |
-| Hosting | Any Bun-capable host — Dockerfile included, Railway-tested |
+| Hosting | Vercel (live demo, via Nitro) or any Bun-capable host — Dockerfile included |
 
 ---
 
@@ -190,3 +190,13 @@ server/
 - **Average-cost basis** across all lots (not lot-by-lot)
 - BUY cost uses the statement's total cost figure, not `qty × price` (price can be $0 for funds)
 - Statement formula: Ending Balance = Beginning Balance + Contributions − Distributions + Net Income
+
+## Deploying to Vercel
+
+The live demo runs on Vercel. `vite.config.ts` enables Nitro's Vercel preset only when the `VERCEL` env var is set, so Docker/local builds are unchanged. Yahoo Finance rate-limits (429s) Vercel's shared IPs, so Yahoo calls go through a small allowlisted Cloudflare Worker (`worker/`):
+
+1. `cd worker && npx wrangler deploy && npx wrangler secret put PROXY_KEY`
+2. On Vercel, set `YAHOO_PROXY_URL` (the Worker URL) and `YAHOO_PROXY_KEY` (same value as `PROXY_KEY`).
+3. `vercel deploy --prod`
+
+Without `YAHOO_PROXY_URL` the app calls Yahoo directly, which is what Docker/Railway/local use.

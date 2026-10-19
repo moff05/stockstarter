@@ -9,45 +9,76 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
-import { Route as AuthenticatedTransactionsRouteImport } from './routes/_authenticated/transactions'
-import { Route as AuthenticatedTaxLossRouteImport } from './routes/_authenticated/tax-loss'
-import { Route as AuthenticatedTargetAllocationRouteImport } from './routes/_authenticated/target-allocation'
-import { Route as AuthenticatedSp500RouteImport } from './routes/_authenticated/sp500'
-import { Route as AuthenticatedRebalancingRouteImport } from './routes/_authenticated/rebalancing'
-import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
-import { Route as AuthenticatedMappingsRouteImport } from './routes/_authenticated/mappings'
-import { Route as AuthenticatedIncomeRouteImport } from './routes/_authenticated/income'
-import { Route as AuthenticatedHoldingsRouteImport } from './routes/_authenticated/holdings'
-import { Route as AuthenticatedFinancialsRouteImport } from './routes/_authenticated/financials'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedAdvancedRouteImport } from './routes/_authenticated/advanced'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedFinancialsRouteImport } from './routes/_authenticated/financials'
+import { Route as AuthenticatedHoldingsRouteImport } from './routes/_authenticated/holdings'
+import { Route as AuthenticatedIncomeRouteImport } from './routes/_authenticated/income'
+import { Route as AuthenticatedMappingsRouteImport } from './routes/_authenticated/mappings'
+import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
+import { Route as AuthenticatedRebalancingRouteImport } from './routes/_authenticated/rebalancing'
+import { Route as AuthenticatedSp500RouteImport } from './routes/_authenticated/sp500'
+import { Route as AuthenticatedTargetAllocationRouteImport } from './routes/_authenticated/target-allocation'
+import { Route as AuthenticatedTaxLossRouteImport } from './routes/_authenticated/tax-loss'
+import { Route as AuthenticatedTransactionsRouteImport } from './routes/_authenticated/transactions'
+import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
-  id: '/upload',
-  path: '/upload',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdvancedRoute = AuthenticatedAdvancedRouteImport.update({
+  id: '/advanced',
+  path: '/advanced',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedTransactionsRoute =
-  AuthenticatedTransactionsRouteImport.update({
-    id: '/transactions',
-    path: '/transactions',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedFinancialsRoute = AuthenticatedFinancialsRouteImport.update({
+  id: '/financials',
+  path: '/financials',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHoldingsRoute = AuthenticatedHoldingsRouteImport.update({
+  id: '/holdings',
+  path: '/holdings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedIncomeRoute = AuthenticatedIncomeRouteImport.update({
+  id: '/income',
+  path: '/income',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMappingsRoute = AuthenticatedMappingsRouteImport.update({
+  id: '/mappings',
+  path: '/mappings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPerformanceRoute =
+  AuthenticatedPerformanceRouteImport.update({
+    id: '/performance',
+    path: '/performance',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedTaxLossRoute = AuthenticatedTaxLossRouteImport.update({
-  id: '/tax-loss',
-  path: '/tax-loss',
+const AuthenticatedRebalancingRoute =
+  AuthenticatedRebalancingRouteImport.update({
+    id: '/rebalancing',
+    path: '/rebalancing',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSp500Route = AuthenticatedSp500RouteImport.update({
+  id: '/sp500',
+  path: '/sp500',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedTargetAllocationRoute =
@@ -56,51 +87,20 @@ const AuthenticatedTargetAllocationRoute =
     path: '/target-allocation',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedSp500Route = AuthenticatedSp500RouteImport.update({
-  id: '/sp500',
-  path: '/sp500',
+const AuthenticatedTaxLossRoute = AuthenticatedTaxLossRouteImport.update({
+  id: '/tax-loss',
+  path: '/tax-loss',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedRebalancingRoute =
-  AuthenticatedRebalancingRouteImport.update({
-    id: '/rebalancing',
-    path: '/rebalancing',
+const AuthenticatedTransactionsRoute =
+  AuthenticatedTransactionsRouteImport.update({
+    id: '/transactions',
+    path: '/transactions',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedPerformanceRoute =
-  AuthenticatedPerformanceRouteImport.update({
-    id: '/performance',
-    path: '/performance',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedMappingsRoute = AuthenticatedMappingsRouteImport.update({
-  id: '/mappings',
-  path: '/mappings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedIncomeRoute = AuthenticatedIncomeRouteImport.update({
-  id: '/income',
-  path: '/income',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedHoldingsRoute = AuthenticatedHoldingsRouteImport.update({
-  id: '/holdings',
-  path: '/holdings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedFinancialsRoute = AuthenticatedFinancialsRouteImport.update({
-  id: '/financials',
-  path: '/financials',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAdvancedRoute = AuthenticatedAdvancedRouteImport.update({
-  id: '/advanced',
-  path: '/advanced',
+const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 
@@ -213,13 +213,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -227,81 +220,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/upload': {
-      id: '/_authenticated/upload'
-      path: '/upload'
-      fullPath: '/upload'
-      preLoaderRoute: typeof AuthenticatedUploadRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/transactions': {
-      id: '/_authenticated/transactions'
-      path: '/transactions'
-      fullPath: '/transactions'
-      preLoaderRoute: typeof AuthenticatedTransactionsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/tax-loss': {
-      id: '/_authenticated/tax-loss'
-      path: '/tax-loss'
-      fullPath: '/tax-loss'
-      preLoaderRoute: typeof AuthenticatedTaxLossRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/target-allocation': {
-      id: '/_authenticated/target-allocation'
-      path: '/target-allocation'
-      fullPath: '/target-allocation'
-      preLoaderRoute: typeof AuthenticatedTargetAllocationRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/sp500': {
-      id: '/_authenticated/sp500'
-      path: '/sp500'
-      fullPath: '/sp500'
-      preLoaderRoute: typeof AuthenticatedSp500RouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/rebalancing': {
-      id: '/_authenticated/rebalancing'
-      path: '/rebalancing'
-      fullPath: '/rebalancing'
-      preLoaderRoute: typeof AuthenticatedRebalancingRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/performance': {
-      id: '/_authenticated/performance'
-      path: '/performance'
-      fullPath: '/performance'
-      preLoaderRoute: typeof AuthenticatedPerformanceRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/mappings': {
-      id: '/_authenticated/mappings'
-      path: '/mappings'
-      fullPath: '/mappings'
-      preLoaderRoute: typeof AuthenticatedMappingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/income': {
-      id: '/_authenticated/income'
-      path: '/income'
-      fullPath: '/income'
-      preLoaderRoute: typeof AuthenticatedIncomeRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/holdings': {
-      id: '/_authenticated/holdings'
-      path: '/holdings'
-      fullPath: '/holdings'
-      preLoaderRoute: typeof AuthenticatedHoldingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/financials': {
-      id: '/_authenticated/financials'
-      path: '/financials'
-      fullPath: '/financials'
-      preLoaderRoute: typeof AuthenticatedFinancialsRouteImport
+    '/_authenticated/advanced': {
+      id: '/_authenticated/advanced'
+      path: '/advanced'
+      fullPath: '/advanced'
+      preLoaderRoute: typeof AuthenticatedAdvancedRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -311,11 +241,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/advanced': {
-      id: '/_authenticated/advanced'
-      path: '/advanced'
-      fullPath: '/advanced'
-      preLoaderRoute: typeof AuthenticatedAdvancedRouteImport
+    '/_authenticated/financials': {
+      id: '/_authenticated/financials'
+      path: '/financials'
+      fullPath: '/financials'
+      preLoaderRoute: typeof AuthenticatedFinancialsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/holdings': {
+      id: '/_authenticated/holdings'
+      path: '/holdings'
+      fullPath: '/holdings'
+      preLoaderRoute: typeof AuthenticatedHoldingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/income': {
+      id: '/_authenticated/income'
+      path: '/income'
+      fullPath: '/income'
+      preLoaderRoute: typeof AuthenticatedIncomeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/mappings': {
+      id: '/_authenticated/mappings'
+      path: '/mappings'
+      fullPath: '/mappings'
+      preLoaderRoute: typeof AuthenticatedMappingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/performance': {
+      id: '/_authenticated/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof AuthenticatedPerformanceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/rebalancing': {
+      id: '/_authenticated/rebalancing'
+      path: '/rebalancing'
+      fullPath: '/rebalancing'
+      preLoaderRoute: typeof AuthenticatedRebalancingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sp500': {
+      id: '/_authenticated/sp500'
+      path: '/sp500'
+      fullPath: '/sp500'
+      preLoaderRoute: typeof AuthenticatedSp500RouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/target-allocation': {
+      id: '/_authenticated/target-allocation'
+      path: '/target-allocation'
+      fullPath: '/target-allocation'
+      preLoaderRoute: typeof AuthenticatedTargetAllocationRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/tax-loss': {
+      id: '/_authenticated/tax-loss'
+      path: '/tax-loss'
+      fullPath: '/tax-loss'
+      preLoaderRoute: typeof AuthenticatedTaxLossRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/transactions': {
+      id: '/_authenticated/transactions'
+      path: '/transactions'
+      fullPath: '/transactions'
+      preLoaderRoute: typeof AuthenticatedTransactionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/upload': {
+      id: '/_authenticated/upload'
+      path: '/upload'
+      fullPath: '/upload'
+      preLoaderRoute: typeof AuthenticatedUploadRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
   }

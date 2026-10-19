@@ -4,6 +4,23 @@ import { z } from "zod";
 const YH_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36";
 
+// Yahoo rate-limits (429s) some hosts' shared IP ranges, notably Vercel/AWS.
+// When YAHOO_PROXY_URL is set, every Yahoo request goes through that proxy
+// (a small allowlisted Cloudflare Worker, see /worker) as
+// `<proxy>/<yahoo-host>/<path>`; otherwise it's a plain fetch to Yahoo.
+function yhFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const proxy = process.env.YAHOO_PROXY_URL;
+  if (!proxy) return fetch(url, init);
+  const u = new URL(url);
+  const headers = new Headers(init.headers);
+  const key = process.env.YAHOO_PROXY_KEY;
+  if (key) headers.set("x-proxy-key", key);
+  return fetch(`${proxy.replace(/\/$/, "")}/${u.host}${u.pathname}${u.search}`, {
+    ...init,
+    headers,
+  });
+}
+
 // Per-isolate cache of Yahoo's anti-bot crumb + cookies. Yahoo started returning
 // 401 "Invalid Cookie" to data-center IPs (Cloudflare Workers included) unless
 // you fetch a consent cookie and crumb first. We do that lazily and reuse it.
@@ -74,7 +91,7 @@ async function ensureYahooSession(): Promise<void> {
         return;
       }
       // Step 1: hit fc.yahoo.com to get a Set-Cookie (A1/A3) we can echo back.
-      const seed = await fetch("https://fc.yahoo.com/", {
+      const seed = await yhFetch("https://fc.yahoo.com/", {
         headers: { "User-Agent": YH_UA, Accept: "*/*" },
         redirect: "manual",
       });
@@ -85,10 +102,13 @@ async function ensureYahooSession(): Promise<void> {
         .map((c) => c.split(";")[0])
         .filter(Boolean)
         .join("; ");
-      if (!cookie) throw new Error("no yahoo cookie");
+      if (!cookie) {
+        const body = (await seed.text().catch(() => "")).slice(0, 80);
+        throw new Error(`no yahoo cookie (seed status ${seed.status}, proxy ${process.env.YAHOO_PROXY_URL ? "on" : "off"}, key ${process.env.YAHOO_PROXY_KEY ? "set" : "unset"}) ${body}`);
+      }
       _yhCookie = cookie;
       // Step 2: ask for a crumb tied to those cookies.
-      const crumbRes = await fetch(
+      const crumbRes = await yhFetch(
         "https://query2.finance.yahoo.com/v1/test/getcrumb",
         { headers: { "User-Agent": YH_UA, Accept: "*/*", Cookie: cookie } },
       );
@@ -166,13 +186,13 @@ async function fetchYahooChart(symbol: string, period1: number, period2: number)
     symbol,
   )}?period1=${period1}&period2=${period2}&interval=1d&events=history`;
   const url = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
-  let res = await fetch(url, { headers: yahooHeaders() });
+  let res = await yhFetch(url, { headers: yahooHeaders() });
   if (res.status === 401 || res.status === 403) {
     // Cookie/crumb expired — clear cache and refresh once before retrying.
     clearYahooSession();
     await ensureYahooSession();
     const retry = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
-    res = await fetch(retry, { headers: yahooHeaders() });
+    res = await yhFetch(retry, { headers: yahooHeaders() });
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -206,12 +226,12 @@ async function fetchQuotesFromYahoo(
   const base = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yhSyms.join(",")}&fields=regularMarketPrice,regularMarketPreviousClose,currency`;
   const url = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
 
-  let res = await fetch(url, { headers: yahooHeaders() });
+  let res = await yhFetch(url, { headers: yahooHeaders() });
   if (res.status === 401 || res.status === 403) {
     clearYahooSession();
     await ensureYahooSession();
     const retry = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
-    res = await fetch(retry, { headers: yahooHeaders() });
+    res = await yhFetch(retry, { headers: yahooHeaders() });
   }
   if (!res.ok) throw new Error(`Yahoo v7/quote ${res.status}`);
 
@@ -269,12 +289,12 @@ async function fetchQuoteMetricsFromYahoo(
   const base = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yhSyms.join(",")}&fields=beta,trailingAnnualDividendYield,dividendYield`;
   const url = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
 
-  let res = await fetch(url, { headers: yahooHeaders() });
+  let res = await yhFetch(url, { headers: yahooHeaders() });
   if (res.status === 401 || res.status === 403) {
     clearYahooSession();
     await ensureYahooSession();
     const retry = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
-    res = await fetch(retry, { headers: yahooHeaders() });
+    res = await yhFetch(retry, { headers: yahooHeaders() });
   }
   if (!res.ok) throw new Error(`Yahoo v7/quote ${res.status}`);
 
@@ -436,7 +456,7 @@ export const getDividendEvents = createServerFn({ method: "POST" })
             yhSym,
           )}?period1=${p1}&period2=${p2}&interval=1d&events=div`;
           const url = _yhCrumb ? `${base}&crumb=${encodeURIComponent(_yhCrumb)}` : base;
-          const res = await fetch(url, { headers: yahooHeaders() });
+          const res = await yhFetch(url, { headers: yahooHeaders() });
           if (!res.ok) throw new Error(`${res.status}`);
           const json = (await res.json()) as any;
           const divMap: Record<string, { amount: number; date: number }> =

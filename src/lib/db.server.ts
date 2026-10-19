@@ -1,7 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 
-const DB_PATH = process.env.DB_PATH ?? resolve(process.cwd(), "data/portfolio.db");
+const DB_PATH = process.env.DB_PATH ??
+  (process.env.VERCEL ? "/tmp/portfolio.db" : resolve(process.cwd(), "data/portfolio.db"));
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
 // Pick the SQLite driver at runtime:
