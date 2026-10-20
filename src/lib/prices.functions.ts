@@ -209,15 +209,45 @@ async function fetchYahooChart(symbol: string, period1: number, period2: number)
 }
 
 /**
+ * Multiplier that converts one unit of a Yahoo-reported quote currency into USD.
+ * Holdings are tracked in USD (transaction prices come from USD brokerage
+ * statements), so a non-USD listing (RY.TO in CAD, a London line in GBp) must be
+ * converted before it's compared against cost basis. Sub-unit currencies quote in
+ * 1/100 of the main unit (GBp/GBX pence, ILA agorot, ZAc cents). Returns null if
+ * the rate can't be fetched, so callers drop the symbol rather than treat a
+ * foreign price as dollars.
+ */
+const SUBUNIT_CURRENCIES: Record<string, string> = { GBP: "GBP", GBX: "GBP", GBp: "GBP", ILA: "ILS", ZAc: "ZAR" };
+
+async function fxToUsd(currency: string): Promise<number | null> {
+  if (!currency || currency === "USD") return 1;
+  const isSubunit = currency in SUBUNIT_CURRENCIES && currency !== "GBP";
+  const base = SUBUNIT_CURRENCIES[currency] ?? currency.toUpperCase();
+  if (base === "USD") return 1;
+  const now = Math.floor(Date.now() / 1000);
+  try {
+    const r = await yahooChart(`${base}USD=X`, now - 60 * 60 * 24 * 7, now + 86400);
+    const closes: (number | null)[] = r.indicators?.quote?.[0]?.close ?? [];
+    for (let i = closes.length - 1; i >= 0; i--) {
+      const c = closes[i];
+      if (c != null && c > 0) return isSubunit ? Number(c) / 100 : Number(c);
+    }
+  } catch (e) {
+    console.error(`[fx] ${base}USD`, (e as Error).message);
+  }
+  return null;
+}
+
+/**
  * Get current quote for one or more symbols.
  */
 const QUOTE_CACHE_TTL_MS = 60_000; // matches the client's `staleTime` for the prices query
 
 async function fetchQuotesFromYahoo(
   symbols: string[],
-): Promise<Record<string, { price: number; previousClose: number; currency: string }>> {
+): Promise<Record<string, { price: number; previousClose: number; currency: string; nativeCurrency: string }>> {
   await ensureYahooSession();
-  const out: Record<string, { price: number; previousClose: number; currency: string }> = {};
+  const out: Record<string, { price: number; previousClose: number; currency: string; nativeCurrency: string }> = {};
 
   const yhToOrig = new Map<string, string>();
   for (const sym of symbols) yhToOrig.set(sym.replace(".", "-").toUpperCase(), sym);
@@ -239,10 +269,14 @@ async function fetchQuotesFromYahoo(
   const results: any[] = json?.quoteResponse?.result ?? [];
   for (const r of results) {
     const origSym = yhToOrig.get(r.symbol?.toUpperCase()) ?? r.symbol;
+    const nativeCurrency: string = r.currency ?? "USD";
+    const fx = await fxToUsd(nativeCurrency);
+    if (fx == null) continue; // absent => buildSnapshot falls back to cost basis with a stale flag
     out[origSym.toUpperCase()] = {
-      price: Number(r.regularMarketPrice ?? 0),
-      previousClose: Number(r.regularMarketPreviousClose ?? 0),
-      currency: r.currency ?? "USD",
+      price: Number(r.regularMarketPrice ?? 0) * fx,
+      previousClose: Number(r.regularMarketPreviousClose ?? 0) * fx,
+      currency: "USD",
+      nativeCurrency,
     };
   }
   return out;
@@ -394,6 +428,14 @@ export const getHistoricalCloses = createServerFn({ method: "POST" })
             }
           }
           if (pick != null) {
+            // Non-USD listings are converted at the latest FX rate (not the rate on
+            // asOfDate), so past values of foreign holdings are approximate.
+            const fx = await fxToUsd(r.meta?.currency ?? "USD");
+            if (fx == null) {
+              out[sym] = 0;
+              return;
+            }
+            pick *= fx;
             out[sym] = pick;
             // Cache keyed by the original (dot-form) symbol to match the read above —
             // yhSym is only Yahoo's request format, never how we look the cache back up.
